@@ -128,6 +128,26 @@ export interface TagEmailRequest {
   tag_id: number
 }
 
+// 导出相关类型
+export interface FieldOption {
+  key: string
+  label: string
+  value: string
+}
+
+export interface ExportEmailRequest {
+  range: 'all' | 'selected'
+  format: 'txt' | 'csv'
+  field_order: FieldOption[]
+  email_ids?: number[]
+}
+
+export interface ExportEmailResponse {
+  content: string
+  count: number
+  format: string
+}
+
 // 邮件相关类型
 export interface OutlookMail {
   id: string
@@ -223,7 +243,11 @@ export const emailAPI = {
   
   // 清空收件箱
   clearInbox: (id: number): Promise<AxiosResponse<APIResponse>> =>
-    api.delete(`/emails/${id}/inbox`)
+    api.delete(`/emails/${id}/inbox`),
+
+  // 导出邮箱
+  exportEmails: (data: ExportEmailRequest): Promise<AxiosResponse<APIResponse<ExportEmailResponse>>> =>
+    api.post('/emails/export', data)
 }
 
 // 标记API

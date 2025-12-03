@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"outlook-helper/backend/internal/config"
 	"outlook-helper/backend/internal/database"
@@ -452,3 +453,126 @@ func (s *EmailService) CountUserEmails(userID int) (int, error) {
 func (s *EmailService) CountSearchEmails(userID int, keyword string) (int, error) {
 	return s.emailRepo.CountSearchEmails(userID, keyword)
 }
+
+// ExportEmails 导出邮箱数据
+func (s *EmailService) ExportEmails(userID int, req *models.ExportEmailRequest, ipAddress, userAgent string) (*models.ExportEmailResponse, error) {
+	var emails []models.Email
+	var err error
+
+	// 根据导出范围获取邮箱数据
+	if req.Range == "selected" {
+		if len(req.EmailIDs) == 0 {
+			return nil, errors.New("选择导出时必须提供邮箱ID列表")
+		}
+
+		// 验证所有邮箱都属于当前用户并获取数据
+		emails, err = s.emailRepo.GetEmailsByIDs(userID, req.EmailIDs)
+		if err != nil {
+			return nil, err
+		}
+
+		// 验证数量匹配，确保所有请求的邮箱都存在且属于当前用户
+		if len(emails) != len(req.EmailIDs) {
+			return nil, errors.New("部分邮箱不存在或无权访问")
+		}
+	} else {
+		// 导出全部邮箱 - 简化查询，不再需要排序参数
+		emails, err = s.emailRepo.GetAllEmailsByUserID(userID)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// 生成导出内容，使用用户指定的字段顺序
+	content := s.generateExportContentWithFieldOrder(emails, req.Format, req.FieldOrder)
+
+	// 记录导出日志
+	fieldNames := make([]string, len(req.FieldOrder))
+	for i, field := range req.FieldOrder {
+		fieldNames[i] = field.Label
+	}
+	s.logRepo.LogEmail(userID, "export_emails", 0,
+		fmt.Sprintf("导出邮箱数据，范围: %s，格式: %s，字段顺序: [%s]，数量: %d",
+			req.Range, req.Format, strings.Join(fieldNames, ", "), len(emails)),
+		ipAddress, userAgent)
+
+	response := &models.ExportEmailResponse{
+		Content: content,
+		Count:   len(emails),
+		Format:  req.Format,
+	}
+
+	return response, nil
+}
+
+// generateExportContentWithFieldOrder 根据字段顺序生成导出内容
+func (s *EmailService) generateExportContentWithFieldOrder(emails []models.Email, format string, fieldOrder []models.FieldOption) string {
+	if len(emails) == 0 {
+		return ""
+	}
+
+	var content strings.Builder
+
+	if format == "csv" {
+		// CSV格式：添加头部
+		headers := make([]string, len(fieldOrder))
+		for i, field := range fieldOrder {
+			headers[i] = field.Label
+		}
+		content.WriteString(strings.Join(headers, ","))
+		content.WriteString("\n")
+
+		// 添加数据行
+		for _, email := range emails {
+			values := make([]string, len(fieldOrder))
+			for i, field := range fieldOrder {
+				value := s.getEmailFieldValue(email, field.Key)
+				values[i] = fmt.Sprintf(`"%s"`, s.escapeCSV(value))
+			}
+			content.WriteString(strings.Join(values, ","))
+			content.WriteString("\n")
+		}
+	} else {
+		// TXT格式：每行一个邮箱，使用----分隔
+		for _, email := range emails {
+			values := make([]string, len(fieldOrder))
+			for i, field := range fieldOrder {
+				values[i] = s.getEmailFieldValue(email, field.Key)
+			}
+			content.WriteString(strings.Join(values, "----"))
+			content.WriteString("\n")
+		}
+	}
+
+	return content.String()
+}
+
+// getEmailFieldValue 根据字段键获取邮箱对应的字段值
+func (s *EmailService) getEmailFieldValue(email models.Email, fieldKey string) string {
+	switch fieldKey {
+	case "email_address":
+		return email.EmailAddress
+	case "password":
+		return email.Password
+	case "refresh_token":
+		return email.RefreshToken
+	case "client_id":
+		return email.ClientID
+	case "remark":
+		return email.Remark
+	case "created_at":
+		return email.CreatedAt.Format("2006-01-02 15:04:05")
+	default:
+		return ""
+	}
+}
+
+// escapeCSV CSV字段转义处理
+func (s *EmailService) escapeCSV(field string) string {
+	// 如果字段包含引号，需要双引号转义
+	if strings.Contains(field, `"`) {
+		field = strings.ReplaceAll(field, `"`, `""`)
+	}
+	return field
+}
+
