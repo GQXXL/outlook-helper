@@ -265,7 +265,7 @@ const loadDashboardData = async () => {
   loading.value = true
   try {
     const response = await dashboardAPI.getDashboard()
-    if (response.data.success) {
+    if (response.data.success && response.data.data) {
       dashboardData.value = response.data.data
     } else {
       ElMessage.error(response.data.message || '获取仪表盘数据失败')
@@ -285,7 +285,7 @@ const loadOperationLogs = async () => {
   logsLoading.value = true
   try {
     const response = await logsAPI.getLogs(currentPage.value, pageSize.value)
-    if (response.data.success) {
+    if (response.data.success && response.data.data) {
       const data = response.data.data
       operationLogs.value = data.logs
       total.value = data.total

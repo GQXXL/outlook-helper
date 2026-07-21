@@ -358,9 +358,10 @@ const handleExport = async (params: any) => {
 
     const response = await emailAPI.exportEmails(exportParams)
 
-    if (response.data.success) {
+    const exportData = response.data.data
+    if (response.data.success && exportData) {
       // 创建下载链接
-      const blob = new Blob([response.data.data.content], {
+      const blob = new Blob([exportData.content], {
         type: params.format === 'csv' ? 'text/csv' : 'text/plain'
       })
       const url = window.URL.createObjectURL(blob)
@@ -377,7 +378,7 @@ const handleExport = async (params: any) => {
       document.body.removeChild(link)
       window.URL.revokeObjectURL(url)
 
-      ElMessage.success(`成功导出 ${response.data.data.count} 个邮箱`)
+      ElMessage.success(`成功导出 ${exportData.count} 个邮箱`)
     } else {
       ElMessage.error(response.data.message || '导出失败')
     }
