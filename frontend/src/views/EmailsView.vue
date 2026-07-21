@@ -15,6 +15,14 @@
               <el-icon><Search /></el-icon>
             </template>
           </el-input>
+          <div class="mailbox-switch">
+            <span class="mailbox-label">邮箱位置</span>
+            <el-segmented
+              v-model="selectedMailbox"
+              :options="mailboxOptions"
+              size="default"
+            />
+          </div>
         </div>
         <div class="operation-right">
           <template v-if="authStore.isAdmin">
@@ -272,6 +280,11 @@ const searchKeyword = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
+const selectedMailbox = ref<'INBOX' | 'Junk'>('INBOX')
+const mailboxOptions = [
+  { label: '收件箱', value: 'INBOX' },
+  { label: '垃圾邮件', value: 'Junk' }
+]
 
 // 操作loading状态
 const operationLoading = ref({
@@ -297,6 +310,8 @@ const pageLoadingText = ref('加载中...')
 // 邮件相关
 const currentMail = ref<OutlookMail | null>(null)
 const currentMailList = ref<OutlookMail[]>([])
+
+const mailboxName = () => selectedMailbox.value === 'Junk' ? '垃圾邮件' : '收件箱'
 
 // 方法
 const loadEmails = async () => {
@@ -407,9 +422,9 @@ const copyEmailAddress = async (emailAddress: string) => {
 const getLatestMail = async (email: Email) => {
   operationLoading.value.getLatestMail[email.id] = true
   pageLoading.value = true
-  pageLoadingText.value = '正在获取最新邮件...'
+  pageLoadingText.value = `正在获取${mailboxName()}最新邮件...`
   try {
-    const response = await emailAPI.getLatestMail(email.id)
+    const response = await emailAPI.getLatestMail(email.id, selectedMailbox.value)
     if (response.data.success && response.data.data) {
       currentMail.value = response.data.data
       currentMailList.value = [response.data.data]
@@ -439,9 +454,9 @@ const getLatestMail = async (email: Email) => {
 const getAllMails = async (email: Email) => {
   operationLoading.value.getAllMails[email.id] = true
   pageLoading.value = true
-  pageLoadingText.value = '正在获取全部邮件...'
+  pageLoadingText.value = `正在获取${mailboxName()}全部邮件...`
   try {
-    const response = await emailAPI.getAllMails(email.id)
+    const response = await emailAPI.getAllMails(email.id, selectedMailbox.value)
     if (response.data.success && response.data.data) {
       currentMailList.value = response.data.data
       currentMail.value = response.data.data[0] || null
@@ -668,6 +683,19 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.mailbox-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.mailbox-label {
+  color: #4a5568;
+  font-size: 14px;
 }
 
 .operation-right {
@@ -935,6 +963,10 @@ onMounted(() => {
 
   .operation-right {
     justify-content: space-between;
+  }
+
+  .mailbox-switch {
+    width: 100%;
   }
 
   .operation-right .el-input {
