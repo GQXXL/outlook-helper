@@ -9,6 +9,8 @@ export const useAuthStore = defineStore('auth', () => {
   const isLoading = ref(false)
 
   const isAuthenticated = computed(() => !!token.value)
+  const isAdmin = computed(() => user.value?.role !== 'viewer')
+  const isViewer = computed(() => user.value?.role === 'viewer')
 
   // 登录
   const login = async (credentials: LoginRequest) => {
@@ -101,6 +103,8 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isLoading,
     isAuthenticated,
+    isAdmin,
+    isViewer,
     login,
     logout,
     checkAuth

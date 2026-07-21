@@ -9,6 +9,8 @@ type User struct {
 	ID           int        `json:"id" db:"id"`
 	Username     string     `json:"username" db:"username"`
 	PasswordHash string     `json:"-" db:"password_hash"`
+	Role         string     `json:"role,omitempty"`
+	AccessCodeID *int       `json:"access_code_id,omitempty"`
 	LastLoginAt  *time.Time `json:"last_login_at" db:"last_login_at"`
 	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
@@ -54,6 +56,26 @@ type OperationLog struct {
 	CreatedAt     time.Time `json:"created_at" db:"created_at"`
 }
 
+const (
+	RoleAdmin  = "admin"
+	RoleViewer = "viewer"
+)
+
+// AccessCode 授权码模型
+type AccessCode struct {
+	ID         int        `json:"id" db:"id"`
+	Name       string     `json:"name" db:"name"`
+	CodeHash   string     `json:"-" db:"code_hash"`
+	Code       string     `json:"code,omitempty"`
+	Role       string     `json:"role" db:"role"`
+	Enabled    bool       `json:"enabled" db:"enabled"`
+	ExpiresAt  *time.Time `json:"expires_at,omitempty" db:"expires_at"`
+	CreatedAt  time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at" db:"updated_at"`
+	EmailIDs   []int      `json:"email_ids,omitempty"`
+	EmailCount int        `json:"email_count,omitempty"`
+}
+
 // OutlookMail Outlook邮件模型
 type OutlookMail struct {
 	ID         string    `json:"id"`
@@ -85,6 +107,19 @@ type LoginResponse struct {
 	Token     string `json:"token"`
 	ExpiresAt int64  `json:"expires_at"`
 	User      User   `json:"user"`
+}
+
+// CreateAccessCodeRequest 创建授权码请求
+type CreateAccessCodeRequest struct {
+	Name     string `json:"name" binding:"required"`
+	EmailIDs []int  `json:"email_ids"`
+}
+
+// UpdateAccessCodeRequest 更新授权码请求
+type UpdateAccessCodeRequest struct {
+	Name     string `json:"name" binding:"required"`
+	Enabled  bool   `json:"enabled"`
+	EmailIDs []int  `json:"email_ids"`
 }
 
 // AddEmailRequest 添加邮箱请求

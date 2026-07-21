@@ -11,10 +11,11 @@ import (
 
 // Service 认证服务
 type Service struct {
-	userRepo   *database.UserRepository
-	logRepo    *database.LogRepository
-	jwtManager *JWTManager
-	config     *config.Config
+	userRepo       *database.UserRepository
+	accessCodeRepo *database.AccessCodeRepository
+	logRepo        *database.LogRepository
+	jwtManager     *JWTManager
+	config         *config.Config
 }
 
 // NewService 创建认证服务
@@ -22,26 +23,37 @@ func NewService(db *database.DB, jwtSecret string, jwtExpire int, cfg *config.Co
 	jwtManager := NewJWTManager(jwtSecret, time.Duration(jwtExpire)*time.Hour)
 
 	return &Service{
-		userRepo:   db.User,
-		logRepo:    db.Log,
-		jwtManager: jwtManager,
-		config:     cfg,
+		userRepo:       db.User,
+		accessCodeRepo: db.AccessCode,
+		logRepo:        db.Log,
+		jwtManager:     jwtManager,
+		config:         cfg,
 	}
 }
 
 // Login 用户登录
 func (s *Service) Login(authToken, ipAddress, userAgent string) (*models.LoginResponse, error) {
-	// 验证授权码是否与环境变量配置匹配
-	if authToken != s.config.AuthToken {
-		// 记录登录失败日志
-		s.logRepo.LogAuth(0, "login_failed", "授权码错误", ipAddress, userAgent)
-		return nil, errors.New("授权码错误")
-	}
+	var user *models.User
 
-	// 创建虚拟用户对象（用于生成JWT令牌）
-	user := &models.User{
-		ID:       1,       // 固定ID
-		Username: "admin", // 固定用户名
+	if authToken == s.config.AuthToken {
+		user = &models.User{
+			ID:       1,
+			Username: "admin",
+			Role:     models.RoleAdmin,
+		}
+	} else {
+		accessCode, err := s.accessCodeRepo.GetEnabledAccessCodeByHash(HashAccessCode(authToken))
+		if err != nil {
+			s.logRepo.LogAuth(0, "login_failed", "授权码错误", ipAddress, userAgent)
+			return nil, errors.New("授权码错误")
+		}
+
+		user = &models.User{
+			ID:           1,
+			Username:     accessCode.Name,
+			Role:         models.RoleViewer,
+			AccessCodeID: &accessCode.ID,
+		}
 	}
 
 	// 生成JWT令牌
@@ -58,8 +70,10 @@ func (s *Service) Login(authToken, ipAddress, userAgent string) (*models.LoginRe
 		Token:     token,
 		ExpiresAt: expiresAt,
 		User: models.User{
-			ID:       user.ID,
-			Username: user.Username,
+			ID:           user.ID,
+			Username:     user.Username,
+			Role:         user.Role,
+			AccessCodeID: user.AccessCodeID,
 		},
 	}
 
@@ -82,8 +96,27 @@ func (s *Service) ValidateToken(tokenString string) (*models.User, error) {
 
 	// 创建虚拟用户对象（基于JWT声明）
 	user := &models.User{
-		ID:       claims.UserID,
-		Username: claims.Username,
+		ID:           claims.UserID,
+		Username:     claims.Username,
+		Role:         claims.Role,
+		AccessCodeID: claims.AccessCodeID,
+	}
+	if user.Role == "" {
+		user.Role = models.RoleAdmin
+	}
+
+	if user.Role == models.RoleViewer {
+		if user.AccessCodeID == nil {
+			return nil, errors.New("授权码已失效")
+		}
+
+		accessCode, err := s.accessCodeRepo.GetAccessCodeByID(*user.AccessCodeID)
+		if err != nil || !accessCode.Enabled {
+			return nil, errors.New("授权码已失效")
+		}
+		if accessCode.ExpiresAt != nil && accessCode.ExpiresAt.Before(time.Now()) {
+			return nil, errors.New("授权码已过期")
+		}
 	}
 
 	return user, nil

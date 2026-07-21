@@ -176,6 +176,49 @@ func (r *EmailRepository) SearchEmails(userID int, keyword string, limit, offset
 	return emails, nil
 }
 
+// GetEmailsByAccessCodeID 获取授权码可访问的邮箱列表
+func (r *EmailRepository) GetEmailsByAccessCodeID(accessCodeID int, limit, offset int) ([]models.Email, error) {
+	query := `
+		SELECT e.id, e.user_id, e.email_address, e.password, e.client_id, e.refresh_token, e.remark,
+		       e.last_operation_at, e.created_at, e.updated_at
+		FROM emails e
+		INNER JOIN access_code_emails ace ON ace.email_id = e.id
+		WHERE ace.access_code_id = ?
+		ORDER BY e.created_at DESC
+		LIMIT ? OFFSET ?
+	`
+
+	rows, err := r.db.Query(query, accessCodeID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return r.scanEmailRows(rows)
+}
+
+// SearchEmailsByAccessCodeID 搜索授权码可访问的邮箱
+func (r *EmailRepository) SearchEmailsByAccessCodeID(accessCodeID int, keyword string, limit, offset int) ([]models.Email, error) {
+	query := `
+		SELECT e.id, e.user_id, e.email_address, e.password, e.client_id, e.refresh_token, e.remark,
+		       e.last_operation_at, e.created_at, e.updated_at
+		FROM emails e
+		INNER JOIN access_code_emails ace ON ace.email_id = e.id
+		WHERE ace.access_code_id = ? AND (e.email_address LIKE ? OR e.remark LIKE ?)
+		ORDER BY e.created_at DESC
+		LIMIT ? OFFSET ?
+	`
+
+	searchPattern := "%" + keyword + "%"
+	rows, err := r.db.Query(query, accessCodeID, searchPattern, searchPattern, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	return r.scanEmailRows(rows)
+}
+
 // UpdateEmail 更新邮箱
 func (r *EmailRepository) UpdateEmail(email *models.Email) error {
 	query := `
@@ -380,6 +423,31 @@ func (r *EmailRepository) CountSearchEmails(userID int, keyword string) (int, er
 	return count, err
 }
 
+// CountEmailsByAccessCodeID 统计授权码可访问的邮箱数量
+func (r *EmailRepository) CountEmailsByAccessCodeID(accessCodeID int) (int, error) {
+	var count int
+	err := r.db.QueryRow(`
+		SELECT COUNT(*)
+		FROM emails e
+		INNER JOIN access_code_emails ace ON ace.email_id = e.id
+		WHERE ace.access_code_id = ?
+	`, accessCodeID).Scan(&count)
+	return count, err
+}
+
+// CountSearchEmailsByAccessCodeID 统计授权码搜索结果数量
+func (r *EmailRepository) CountSearchEmailsByAccessCodeID(accessCodeID int, keyword string) (int, error) {
+	searchPattern := "%" + keyword + "%"
+	var count int
+	err := r.db.QueryRow(`
+		SELECT COUNT(*)
+		FROM emails e
+		INNER JOIN access_code_emails ace ON ace.email_id = e.id
+		WHERE ace.access_code_id = ? AND (e.email_address LIKE ? OR e.remark LIKE ?)
+	`, accessCodeID, searchPattern, searchPattern).Scan(&count)
+	return count, err
+}
+
 // EmailExists 检查邮箱是否已存在
 func (r *EmailRepository) EmailExists(userID int, emailAddress string) (bool, error) {
 	query := `SELECT COUNT(*) FROM emails WHERE user_id = ? AND email_address = ?`
@@ -481,6 +549,36 @@ func (r *EmailRepository) GetAllEmailsByUserID(userID int) ([]models.Email, erro
 		if err != nil {
 			return nil, err
 		}
+		emails = append(emails, email)
+	}
+
+	return emails, rows.Err()
+}
+
+func (r *EmailRepository) scanEmailRows(rows *sql.Rows) ([]models.Email, error) {
+	var emails []models.Email
+	for rows.Next() {
+		var email models.Email
+		if err := rows.Scan(
+			&email.ID,
+			&email.UserID,
+			&email.EmailAddress,
+			&email.Password,
+			&email.ClientID,
+			&email.RefreshToken,
+			&email.Remark,
+			&email.LastOperationAt,
+			&email.CreatedAt,
+			&email.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		tags, err := r.GetEmailTags(email.ID)
+		if err == nil {
+			email.Tags = tags
+		}
+
 		emails = append(emails, email)
 	}
 

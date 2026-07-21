@@ -17,6 +17,7 @@
           </el-input>
         </div>
         <div class="operation-right">
+          <template v-if="authStore.isAdmin">
           <el-button
             type="danger"
             :disabled="selectedEmails.length === 0 || operationLoading.batchClearInbox"
@@ -52,6 +53,7 @@
             <el-icon><Download /></el-icon>
             导出
           </el-button>
+          </template>
           <el-button @click="loadEmails">
             <el-icon><Refresh /></el-icon>
             刷新
@@ -68,14 +70,14 @@
         style="width: 100%"
         @selection-change="handleSelectionChange"
       >
-        <el-table-column type="selection" width="55" />
+        <el-table-column v-if="authStore.isAdmin" type="selection" width="55" />
         <el-table-column prop="email_address" label="邮箱地址" width="320">
           <template #default="{ row }">
             <div class="email-address-cell">
               <span
                 class="email-address-link"
                 @click="handleEmailClick(row)"
-                title="点击标记邮箱"
+                :title="authStore.isAdmin ? '点击标记邮箱' : '邮箱地址'"
               >
                 {{ row.email_address }}
               </span>
@@ -152,6 +154,7 @@
                 </el-button>
 
                 <el-button
+                  v-if="authStore.isAdmin"
                   link
                   class="icon-button icon-button-danger"
                   :loading="operationLoading.deleteEmail[row.id]"
@@ -182,18 +185,21 @@
 
     <!-- 添加邮箱对话框 -->
     <AddEmailDialog
+      v-if="authStore.isAdmin"
       v-model="showAddDialog"
       @success="handleAddSuccess"
     />
 
     <!-- 批量添加对话框 -->
     <BatchAddDialog
+      v-if="authStore.isAdmin"
       v-model="showBatchDialog"
       @success="handleBatchSuccess"
     />
 
     <!-- 批量标签对话框 -->
     <BatchTagDialog
+      v-if="authStore.isAdmin"
       v-model="showBatchTagDialog"
       :email-ids="selectedEmails.map(e => e.id)"
       @success="handleBatchTagSuccess"
@@ -208,12 +214,14 @@
 
     <!-- 文件导入对话框 -->
     <FileImportDialog
+      v-if="authStore.isAdmin"
       v-model="showImportDialog"
       @success="handleImportSuccess"
     />
 
     <!-- 导出对话框 -->
     <ExportDialog
+      v-if="authStore.isAdmin"
       v-model="showExportDialog"
       :selected-count="selectedEmails.length"
       :selected-email-ids="selectedEmails.map(e => e.id)"
@@ -253,8 +261,10 @@ import MailViewDialog from '@/components/MailViewDialog.vue'
 import FileImportDialog from '@/components/FileImportDialog.vue'
 import ExportDialog from '@/components/ExportDialog.vue'
 import { emailAPI, type Email, type OutlookMail } from '@/api'
+import { useAuthStore } from '@/stores/auth'
 
 // 响应式数据
+const authStore = useAuthStore()
 const loading = ref(false)
 const emails = ref<Email[]>([])
 const selectedEmails = ref<Email[]>([])
@@ -609,6 +619,9 @@ const handleBatchTagSuccess = () => {
 }
 
 const handleEmailClick = (email: Email) => {
+  if (!authStore.isAdmin) {
+    return
+  }
   // 设置选中的邮箱为当前点击的邮箱
   selectedEmails.value = [email]
   // 打开批量标签对话框

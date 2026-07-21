@@ -47,9 +47,14 @@
           <template #title>邮箱管理</template>
         </el-menu-item>
 
-        <el-menu-item index="/tags">
+        <el-menu-item v-if="authStore.isAdmin" index="/tags">
           <el-icon><Collection /></el-icon>
           <template #title>标签管理</template>
+        </el-menu-item>
+
+        <el-menu-item v-if="authStore.isAdmin" index="/access-codes">
+          <el-icon><Key /></el-icon>
+          <template #title>授权码管理</template>
         </el-menu-item>
       </el-menu>
     </el-aside>
@@ -111,6 +116,7 @@ import {
   DataBoard,
   Message,
   Collection,
+  Key,
   User,
   ArrowDown,
   SwitchButton,
@@ -132,7 +138,8 @@ const breadcrumbTitle = computed(() => {
   const routeMap: Record<string, string> = {
     '/': '仪表盘',
     '/emails': '邮箱管理',
-    '/tags': '标签管理'
+    '/tags': '标签管理',
+    '/access-codes': '授权码管理'
   }
   return routeMap[route.path] || ''
 })

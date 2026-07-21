@@ -3,7 +3,7 @@
     <div class="dashboard-content">
         <!-- 统计卡片 -->
         <el-row :gutter="20" class="stats-cards">
-          <el-col :xs="24" :sm="12" :md="6">
+          <el-col v-if="authStore.isAdmin" :xs="24" :sm="12" :md="6">
             <el-card class="stat-card">
               <div class="stat-item">
                 <div class="stat-icon email">
@@ -63,7 +63,7 @@
         <!-- 图表和列表 -->
         <el-row :gutter="20" class="charts-section">
           <!-- 邮箱分布图表 -->
-          <el-col :xs="24" :lg="12">
+          <el-col v-if="authStore.isAdmin" :xs="24" :lg="12">
             <el-card class="chart-card">
               <template #header>
                 <div class="card-header">
@@ -130,7 +130,7 @@
         </el-row>
         
         <!-- 最近操作记录 -->
-        <el-row>
+        <el-row v-if="authStore.isAdmin">
           <el-col :span="24">
             <el-card class="operations-card">
               <template #header>
@@ -211,8 +211,10 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 import { dashboardAPI, logsAPI, type DashboardStats, type OperationLog } from '@/api'
+import { useAuthStore } from '@/stores/auth'
 
 const loading = ref(false)
+const authStore = useAuthStore()
 const dashboardData = ref<DashboardStats | null>(null)
 
 // 操作日志分页数据
@@ -277,6 +279,9 @@ const loadDashboardData = async () => {
 
 // 加载操作日志
 const loadOperationLogs = async () => {
+  if (!authStore.isAdmin) {
+    return
+  }
   logsLoading.value = true
   try {
     const response = await logsAPI.getLogs(currentPage.value, pageSize.value)
@@ -337,7 +342,9 @@ const clearAllLogs = async () => {
 
 const refreshData = () => {
   loadDashboardData()
-  loadOperationLogs()
+  if (authStore.isAdmin) {
+    loadOperationLogs()
+  }
 }
 
 
@@ -431,7 +438,9 @@ const formatTime = (timeStr: string): string => {
 
 onMounted(() => {
   loadDashboardData()
-  loadOperationLogs()
+  if (authStore.isAdmin) {
+    loadOperationLogs()
+  }
 })
 </script>
 

@@ -6,6 +6,7 @@ import LoginView from '@/views/LoginView.vue'
 import DashboardView from '@/views/DashboardView.vue'
 import EmailsView from '@/views/EmailsView.vue'
 import TagsView from '@/views/TagsView.vue'
+import AccessCodesView from '@/views/AccessCodesView.vue'
 import Layout from '@/components/Layout.vue'
 
 const router = createRouter({
@@ -35,7 +36,14 @@ const router = createRouter({
         {
           path: 'tags',
           name: 'tags',
-          component: TagsView
+          component: TagsView,
+          meta: { requiresAdmin: true }
+        },
+        {
+          path: 'access-codes',
+          name: 'access-codes',
+          component: AccessCodesView,
+          meta: { requiresAdmin: true }
         }
       ]
     },
@@ -56,6 +64,9 @@ router.beforeEach((to, from, next) => {
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     // 需要认证但未登录，跳转到登录页
     next('/login')
+  } else if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    // 普通授权码不能访问管理页面
+    next('/emails')
   } else if (to.name === 'login' && authStore.isAuthenticated) {
     // 已登录用户访问登录页，跳转到首页
     next('/')

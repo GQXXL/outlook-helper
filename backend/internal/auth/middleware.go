@@ -128,9 +128,7 @@ func AdminMiddleware() gin.HandlerFunc {
 			return
 		}
 
-		// 检查是否为管理员（这里简单地检查用户名是否为admin）
-		// 在实际项目中，应该有专门的角色权限系统
-		if userObj.Username != "admin" {
+		if userObj.Role != models.RoleAdmin {
 			c.JSON(http.StatusForbidden, models.APIResponse{
 				Success: false,
 				Message: "需要管理员权限",
@@ -142,6 +140,24 @@ func AdminMiddleware() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// GetCurrentRole 从上下文中获取当前角色
+func GetCurrentRole(c *gin.Context) string {
+	user, exists := GetCurrentUser(c)
+	if !exists || user.Role == "" {
+		return models.RoleAdmin
+	}
+	return user.Role
+}
+
+// GetCurrentAccessCodeID 从上下文中获取当前授权码ID
+func GetCurrentAccessCodeID(c *gin.Context) (int, bool) {
+	user, exists := GetCurrentUser(c)
+	if !exists || user.AccessCodeID == nil {
+		return 0, false
+	}
+	return *user.AccessCodeID, true
 }
 
 // GetCurrentUser 从上下文中获取当前用户

@@ -61,6 +61,8 @@ export interface APIResponse<T = any> {
 export interface User {
   id: number
   username: string
+  role?: 'admin' | 'viewer'
+  access_code_id?: number
   last_login_at?: string
   created_at: string
   updated_at: string
@@ -98,6 +100,31 @@ export interface AddEmailRequest {
 
 export interface BatchAddEmailRequest {
   emails: AddEmailRequest[]
+}
+
+// 授权码相关类型
+export interface AccessCode {
+  id: number
+  name: string
+  code?: string
+  role: 'viewer'
+  enabled: boolean
+  email_ids?: number[]
+  email_count?: number
+  expires_at?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CreateAccessCodeRequest {
+  name: string
+  email_ids: number[]
+}
+
+export interface UpdateAccessCodeRequest {
+  name: string
+  enabled: boolean
+  email_ids: number[]
 }
 
 // 标记相关类型
@@ -303,6 +330,24 @@ export const logsAPI = {
   // 清空所有操作日志
   clearLogs: (): Promise<AxiosResponse<APIResponse>> =>
     api.delete('/logs')
+}
+
+// 授权码API
+export const accessCodeAPI = {
+  getAccessCodes: (): Promise<AxiosResponse<APIResponse<AccessCode[]>>> =>
+    api.get('/access-codes'),
+
+  createAccessCode: (data: CreateAccessCodeRequest): Promise<AxiosResponse<APIResponse<AccessCode>>> =>
+    api.post('/access-codes', data),
+
+  updateAccessCode: (id: number, data: UpdateAccessCodeRequest): Promise<AxiosResponse<APIResponse<AccessCode>>> =>
+    api.put(`/access-codes/${id}`, data),
+
+  deleteAccessCode: (id: number): Promise<AxiosResponse<APIResponse>> =>
+    api.delete(`/access-codes/${id}`),
+
+  rotateAccessCode: (id: number): Promise<AxiosResponse<APIResponse<AccessCode>>> =>
+    api.post(`/access-codes/${id}/rotate`)
 }
 
 export default api

@@ -148,6 +148,33 @@ docker run -d \
 
 > ⚠️ **重要提醒**：SQLite数据库文件存储在 `/app/data` 目录中，必须挂载数据卷或本地目录，否则容器重启会导致所有数据丢失！
 
+### custom分支二开部署
+
+`custom` 分支支持管理员创建用户授权码，并把授权码绑定到指定邮箱。管理员使用 `AUTH_TOKEN` 登录后可以查看和管理全部邮箱；用户使用管理员分配的授权码登录后，只能查看绑定邮箱并取件。
+
+```bash
+git clone -b custom https://github.com/GQXXL/outlook-helper.git /opt/outlook-helper
+cd /opt/outlook-helper
+
+docker build -t outlook-helper:custom .
+mkdir -p /opt/outlook-helper/data /opt/outlook-helper/logs
+
+docker run -d \
+  --name outlook-helper \
+  --restart unless-stopped \
+  -p 8388:8080 \
+  -v /opt/outlook-helper/data:/app/data \
+  -v /opt/outlook-helper/logs:/app/logs \
+  -e APP_PORT=8080 \
+  -e APP_ENV=production \
+  -e DB_PATH=/app/data/outlook_helper.db \
+  -e LOG_FILE=/app/logs/app.log \
+  -e AUTH_TOKEN=your-admin-auth-token \
+  -e JWT_SECRET=your-jwt-secret \
+  -e OUTLOOK_API_BASE_URL=https://outlook2api-gold.vercel.app \
+  outlook-helper:custom
+```
+
 ### 环境变量配置
 
 | 变量名 | 说明 | 默认值                |

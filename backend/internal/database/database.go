@@ -13,20 +13,22 @@ type DB struct {
 	conn *sql.DB
 
 	// Repository instances
-	User  *UserRepository
-	Email *EmailRepository
-	Tag   *TagRepository
-	Log   *LogRepository
+	User       *UserRepository
+	Email      *EmailRepository
+	Tag        *TagRepository
+	Log        *LogRepository
+	AccessCode *AccessCodeRepository
 }
 
 // NewDB 创建数据库管理器
 func NewDB(conn *sql.DB) *DB {
 	return &DB{
-		conn:  conn,
-		User:  NewUserRepository(conn),
-		Email: NewEmailRepository(conn),
-		Tag:   NewTagRepository(conn),
-		Log:   NewLogRepository(conn),
+		conn:       conn,
+		User:       NewUserRepository(conn),
+		Email:      NewEmailRepository(conn),
+		Tag:        NewTagRepository(conn),
+		Log:        NewLogRepository(conn),
+		AccessCode: NewAccessCodeRepository(conn),
 	}
 }
 
@@ -91,6 +93,16 @@ func Migrate(db *sql.DB) error {
 
 	// 创建操作日志表
 	if err := createOperationLogsTable(db); err != nil {
+		return err
+	}
+
+	// 创建授权码表
+	if err := createAccessCodesTable(db); err != nil {
+		return err
+	}
+
+	// 创建授权码邮箱关联表
+	if err := createAccessCodeEmailsTable(db); err != nil {
 		return err
 	}
 
@@ -178,6 +190,38 @@ func createOperationLogsTable(db *sql.DB) error {
 		user_agent TEXT,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+	)`
+	_, err := db.Exec(query)
+	return err
+}
+
+// createAccessCodesTable 创建授权码表
+func createAccessCodesTable(db *sql.DB) error {
+	query := `
+	CREATE TABLE IF NOT EXISTS access_codes (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name VARCHAR(100) NOT NULL,
+		code_hash VARCHAR(64) UNIQUE NOT NULL,
+		role VARCHAR(20) NOT NULL DEFAULT 'viewer',
+		enabled BOOLEAN NOT NULL DEFAULT 1,
+		expires_at DATETIME,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`
+	_, err := db.Exec(query)
+	return err
+}
+
+// createAccessCodeEmailsTable 创建授权码邮箱关联表
+func createAccessCodeEmailsTable(db *sql.DB) error {
+	query := `
+	CREATE TABLE IF NOT EXISTS access_code_emails (
+		access_code_id INTEGER NOT NULL,
+		email_id INTEGER NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (access_code_id, email_id),
+		FOREIGN KEY (access_code_id) REFERENCES access_codes(id) ON DELETE CASCADE,
+		FOREIGN KEY (email_id) REFERENCES emails(id) ON DELETE CASCADE
 	)`
 	_, err := db.Exec(query)
 	return err

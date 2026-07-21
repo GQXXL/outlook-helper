@@ -130,35 +130,47 @@ func (s *Server) setupRouter() {
 			emails := protected.Group("/emails")
 			{
 				emails.GET("", s.handleGetEmails)
-				emails.POST("", s.handleAddEmail)
-				emails.POST("/batch", s.handleBatchAddEmails)
-				emails.POST("/import", s.handleImportEmails)
-				emails.POST("/export", s.handleExportEmails)
-				emails.DELETE("/batch", s.handleBatchDeleteEmails)
-				emails.POST("/batch-clear-inbox", s.handleBatchClearInbox)
+				emails.POST("", auth.AdminMiddleware(), s.handleAddEmail)
+				emails.POST("/batch", auth.AdminMiddleware(), s.handleBatchAddEmails)
+				emails.POST("/import", auth.AdminMiddleware(), s.handleImportEmails)
+				emails.POST("/export", auth.AdminMiddleware(), s.handleExportEmails)
+				emails.DELETE("/batch", auth.AdminMiddleware(), s.handleBatchDeleteEmails)
+				emails.POST("/batch-clear-inbox", auth.AdminMiddleware(), s.handleBatchClearInbox)
 				emails.GET("/:id/latest", s.handleGetLatestMail)
 				emails.GET("/:id/all", s.handleGetAllMails)
-				emails.DELETE("/:id/inbox", s.handleClearInbox)
-				emails.PUT("/:id/tags", s.handleTagEmail)
-				emails.DELETE("/:id", s.handleDeleteEmail)
+				emails.DELETE("/:id/inbox", auth.AdminMiddleware(), s.handleClearInbox)
+				emails.PUT("/:id/tags", auth.AdminMiddleware(), s.handleTagEmail)
+				emails.DELETE("/:id", auth.AdminMiddleware(), s.handleDeleteEmail)
 			}
 
 			// 标记管理
 			tags := protected.Group("/tags")
 			{
 				tags.GET("", s.handleGetTags)
-				tags.POST("", s.handleCreateTag)
-				tags.PUT("/:id", s.handleUpdateTag)
-				tags.DELETE("/:id", s.handleDeleteTag)
-				tags.POST("/batch-tag", s.handleBatchTagEmails)
-				tags.POST("/batch-untag", s.handleBatchUntagEmails)
+				tags.POST("", auth.AdminMiddleware(), s.handleCreateTag)
+				tags.PUT("/:id", auth.AdminMiddleware(), s.handleUpdateTag)
+				tags.DELETE("/:id", auth.AdminMiddleware(), s.handleDeleteTag)
+				tags.POST("/batch-tag", auth.AdminMiddleware(), s.handleBatchTagEmails)
+				tags.POST("/batch-untag", auth.AdminMiddleware(), s.handleBatchUntagEmails)
 			}
 
 			// 操作日志管理
 			logs := protected.Group("/logs")
+			logs.Use(auth.AdminMiddleware())
 			{
 				logs.GET("", s.handleGetLogs)
 				logs.DELETE("", s.handleClearLogs)
+			}
+
+			// 授权码管理
+			accessCodes := protected.Group("/access-codes")
+			accessCodes.Use(auth.AdminMiddleware())
+			{
+				accessCodes.GET("", s.handleListAccessCodes)
+				accessCodes.POST("", s.handleCreateAccessCode)
+				accessCodes.PUT("/:id", s.handleUpdateAccessCode)
+				accessCodes.DELETE("/:id", s.handleDeleteAccessCode)
+				accessCodes.POST("/:id/rotate", s.handleRotateAccessCode)
 			}
 		}
 	}
@@ -258,7 +270,7 @@ func (s *Server) handleLogout(c *gin.Context) {
 
 // handleDashboard 获取仪表盘数据
 func (s *Server) handleDashboard(c *gin.Context) {
-	userID, exists := auth.GetCurrentUserID(c)
+	user, exists := auth.GetCurrentUser(c)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, models.APIResponse{
 			Success: false,
@@ -267,6 +279,43 @@ func (s *Server) handleDashboard(c *gin.Context) {
 		})
 		return
 	}
+
+	if user.Role == models.RoleViewer {
+		accessCodeID, ok := auth.GetCurrentAccessCodeID(c)
+		if !ok {
+			c.JSON(http.StatusForbidden, models.APIResponse{
+				Success: false,
+				Message: "授权码无效",
+				Error:   "missing access code",
+			})
+			return
+		}
+
+		totalEmails, err := s.db.Email.CountEmailsByAccessCodeID(accessCodeID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, models.APIResponse{
+				Success: false,
+				Message: "获取邮箱统计失败",
+				Error:   err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, models.APIResponse{
+			Success: true,
+			Message: "获取仪表盘数据成功",
+			Data: models.DashboardStats{
+				TotalEmails:      totalEmails,
+				TotalTags:        0,
+				RecentOperations: []models.OperationLog{},
+				EmailsByTag:      map[string]int{},
+				OperationsByType: map[string]int{},
+			},
+		})
+		return
+	}
+
+	userID := user.ID
 
 	// 获取邮箱总数
 	totalEmails, err := s.emailService.CountUserEmails(userID)
@@ -343,7 +392,7 @@ func (s *Server) handleDashboard(c *gin.Context) {
 
 // handleDashboardStats 获取详细统计数据
 func (s *Server) handleDashboardStats(c *gin.Context) {
-	userID, exists := auth.GetCurrentUserID(c)
+	user, exists := auth.GetCurrentUser(c)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, models.APIResponse{
 			Success: false,
@@ -358,6 +407,50 @@ func (s *Server) handleDashboardStats(c *gin.Context) {
 
 	var data interface{}
 	var message string
+
+	if user.Role == models.RoleViewer {
+		accessCodeID, ok := auth.GetCurrentAccessCodeID(c)
+		if !ok {
+			c.JSON(http.StatusForbidden, models.APIResponse{
+				Success: false,
+				Message: "授权码无效",
+				Error:   "missing access code",
+			})
+			return
+		}
+
+		totalEmails, err := s.db.Email.CountEmailsByAccessCodeID(accessCodeID)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, models.APIResponse{
+				Success: false,
+				Message: "获取邮箱统计失败",
+				Error:   err.Error(),
+			})
+			return
+		}
+
+		recentEmails, err := s.db.Email.GetEmailsByAccessCodeID(accessCodeID, 5, 0)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, models.APIResponse{
+				Success: false,
+				Message: "获取最近邮箱失败",
+				Error:   err.Error(),
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, models.APIResponse{
+			Success: true,
+			Message: "获取邮箱统计成功",
+			Data: map[string]interface{}{
+				"total_emails":  totalEmails,
+				"recent_emails": recentEmails,
+			},
+		})
+		return
+	}
+
+	userID := user.ID
 
 	switch statsType {
 	case "emails":
@@ -469,7 +562,7 @@ func (s *Server) handleDashboardStats(c *gin.Context) {
 
 // handleGetEmails 获取邮箱列表
 func (s *Server) handleGetEmails(c *gin.Context) {
-	userID, exists := auth.GetCurrentUserID(c)
+	user, exists := auth.GetCurrentUser(c)
 	if !exists {
 		c.JSON(http.StatusUnauthorized, models.APIResponse{
 			Success: false,
@@ -500,7 +593,30 @@ func (s *Server) handleGetEmails(c *gin.Context) {
 	var total int
 	var err error
 
-	if keyword != "" {
+	if user.Role == models.RoleViewer {
+		accessCodeID, ok := auth.GetCurrentAccessCodeID(c)
+		if !ok {
+			c.JSON(http.StatusForbidden, models.APIResponse{
+				Success: false,
+				Message: "授权码无效",
+				Error:   "missing access code",
+			})
+			return
+		}
+
+		if keyword != "" {
+			emails, err = s.db.Email.SearchEmailsByAccessCodeID(accessCodeID, keyword, limit, offset)
+			if err == nil {
+				total, err = s.db.Email.CountSearchEmailsByAccessCodeID(accessCodeID, keyword)
+			}
+		} else {
+			emails, err = s.db.Email.GetEmailsByAccessCodeID(accessCodeID, limit, offset)
+			if err == nil {
+				total, err = s.db.Email.CountEmailsByAccessCodeID(accessCodeID)
+			}
+		}
+	} else if keyword != "" {
+		userID := user.ID
 		emails, err = s.emailService.SearchEmails(userID, keyword, limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, models.APIResponse{
@@ -513,6 +629,7 @@ func (s *Server) handleGetEmails(c *gin.Context) {
 		// 获取搜索结果总数
 		total, err = s.emailService.CountSearchEmails(userID, keyword)
 	} else {
+		userID := user.ID
 		emails, err = s.emailService.GetUserEmails(userID, limit, offset)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, models.APIResponse{
@@ -548,6 +665,53 @@ func (s *Server) handleGetEmails(c *gin.Context) {
 		Message: "获取邮箱列表成功",
 		Data:    response,
 	})
+}
+
+func (s *Server) ensureEmailAccess(c *gin.Context, emailID int) bool {
+	user, exists := auth.GetCurrentUser(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.APIResponse{
+			Success: false,
+			Message: "未认证",
+			Error:   "user not authenticated",
+		})
+		return false
+	}
+
+	if user.Role == models.RoleAdmin {
+		return true
+	}
+
+	accessCodeID, ok := auth.GetCurrentAccessCodeID(c)
+	if !ok {
+		c.JSON(http.StatusForbidden, models.APIResponse{
+			Success: false,
+			Message: "授权码无效",
+			Error:   "missing access code",
+		})
+		return false
+	}
+
+	allowed, err := s.db.AccessCode.IsEmailAllowed(accessCodeID, emailID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Success: false,
+			Message: "校验邮箱权限失败",
+			Error:   err.Error(),
+		})
+		return false
+	}
+
+	if !allowed {
+		c.JSON(http.StatusForbidden, models.APIResponse{
+			Success: false,
+			Message: "无权访问此邮箱",
+			Error:   "email access denied",
+		})
+		return false
+	}
+
+	return true
 }
 
 // handleAddEmail 添加邮箱
@@ -792,6 +956,10 @@ func (s *Server) handleGetLatestMail(c *gin.Context) {
 		mailbox = "INBOX"
 	}
 
+	if !s.ensureEmailAccess(c, emailID) {
+		return
+	}
+
 	// 获取客户端信息
 	ipAddress := c.ClientIP()
 	userAgent := c.GetHeader("User-Agent")
@@ -842,6 +1010,10 @@ func (s *Server) handleGetAllMails(c *gin.Context) {
 	mailbox := c.DefaultQuery("mailbox", "INBOX")
 	if mailbox != "INBOX" && mailbox != "Junk" {
 		mailbox = "INBOX"
+	}
+
+	if !s.ensureEmailAccess(c, emailID) {
+		return
 	}
 
 	// 获取客户端信息
@@ -1752,5 +1924,178 @@ func (s *Server) handleExportEmails(c *gin.Context) {
 		Success: true,
 		Message: fmt.Sprintf("成功导出 %d 个邮箱", response.Count),
 		Data:    response,
+	})
+}
+
+// handleListAccessCodes 获取授权码列表
+func (s *Server) handleListAccessCodes(c *gin.Context) {
+	accessCodes, err := s.db.AccessCode.ListAccessCodes()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Success: false,
+			Message: "获取授权码列表失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Success: true,
+		Message: "获取授权码列表成功",
+		Data:    accessCodes,
+	})
+}
+
+// handleCreateAccessCode 创建授权码
+func (s *Server) handleCreateAccessCode(c *gin.Context) {
+	var req models.CreateAccessCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "请求参数错误",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	code, err := auth.GenerateAccessCode()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Success: false,
+			Message: "生成授权码失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	accessCode := &models.AccessCode{
+		Name:     req.Name,
+		CodeHash: auth.HashAccessCode(code),
+		Code:     code,
+		Role:     models.RoleViewer,
+		Enabled:  true,
+	}
+
+	created, err := s.db.AccessCode.CreateAccessCode(accessCode, req.EmailIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Success: false,
+			Message: "创建授权码失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+	created.Code = code
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Success: true,
+		Message: "创建授权码成功，请立即保存返回的授权码",
+		Data:    created,
+	})
+}
+
+// handleUpdateAccessCode 更新授权码
+func (s *Server) handleUpdateAccessCode(c *gin.Context) {
+	accessCodeID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "无效的授权码ID",
+			Error:   "invalid access code id",
+		})
+		return
+	}
+
+	var req models.UpdateAccessCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "请求参数错误",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	updated, err := s.db.AccessCode.UpdateAccessCode(accessCodeID, &req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Success: false,
+			Message: "更新授权码失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Success: true,
+		Message: "更新授权码成功",
+		Data:    updated,
+	})
+}
+
+// handleDeleteAccessCode 删除授权码
+func (s *Server) handleDeleteAccessCode(c *gin.Context) {
+	accessCodeID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "无效的授权码ID",
+			Error:   "invalid access code id",
+		})
+		return
+	}
+
+	if err := s.db.AccessCode.DeleteAccessCode(accessCodeID); err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Success: false,
+			Message: "删除授权码失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Success: true,
+		Message: "删除授权码成功",
+	})
+}
+
+// handleRotateAccessCode 重置授权码
+func (s *Server) handleRotateAccessCode(c *gin.Context) {
+	accessCodeID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "无效的授权码ID",
+			Error:   "invalid access code id",
+		})
+		return
+	}
+
+	code, err := auth.GenerateAccessCode()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Success: false,
+			Message: "生成授权码失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	updated, err := s.db.AccessCode.RotateCode(accessCodeID, auth.HashAccessCode(code))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Success: false,
+			Message: "重置授权码失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+	updated.Code = code
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Success: true,
+		Message: "重置授权码成功，请立即保存返回的新授权码",
+		Data:    updated,
 	})
 }

@@ -11,8 +11,10 @@ import (
 
 // JWTClaims JWT声明结构
 type JWTClaims struct {
-	UserID   int    `json:"user_id"`
-	Username string `json:"username"`
+	UserID       int    `json:"user_id"`
+	Username     string `json:"username"`
+	Role         string `json:"role"`
+	AccessCodeID *int   `json:"access_code_id,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -33,10 +35,16 @@ func NewJWTManager(secretKey string, tokenDuration time.Duration) *JWTManager {
 // GenerateToken 生成JWT令牌
 func (manager *JWTManager) GenerateToken(user *models.User) (string, int64, error) {
 	expiresAt := time.Now().Add(manager.tokenDuration)
-	
+	role := user.Role
+	if role == "" {
+		role = models.RoleAdmin
+	}
+
 	claims := &JWTClaims{
-		UserID:   user.ID,
-		Username: user.Username,
+		UserID:       user.ID,
+		Username:     user.Username,
+		Role:         role,
+		AccessCodeID: user.AccessCodeID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -101,8 +109,10 @@ func (manager *JWTManager) RefreshToken(tokenString string) (string, int64, erro
 
 	// 创建新的用户对象用于生成新令牌
 	user := &models.User{
-		ID:       claims.UserID,
-		Username: claims.Username,
+		ID:           claims.UserID,
+		Username:     claims.Username,
+		Role:         claims.Role,
+		AccessCodeID: claims.AccessCodeID,
 	}
 
 	return manager.GenerateToken(user)
