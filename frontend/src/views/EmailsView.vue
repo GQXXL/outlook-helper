@@ -7,7 +7,7 @@
           <el-input
             v-model="searchKeyword"
             placeholder="搜索邮箱地址或备注"
-            style="width: 300px;"
+            class="search-input"
             clearable
             @input="handleSearch"
           >
@@ -659,6 +659,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
   padding: 0 16px;
+  min-width: 0;
 }
 
 @media (min-width: 1200px) {
@@ -684,6 +685,11 @@ onMounted(() => {
   gap: 12px;
   flex-wrap: wrap;
   align-items: center;
+  min-width: 0;
+}
+
+.search-input {
+  width: 300px;
 }
 
 .mailbox-switch {
@@ -702,10 +708,13 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .table-card {
   margin-bottom: 20px;
+  overflow: hidden;
 }
 
 .tags-container {
@@ -758,6 +767,15 @@ onMounted(() => {
 
 :deep(.el-table .el-table__row) {
   height: 36px;
+}
+
+.table-card :deep(.el-card__body) {
+  overflow-x: auto;
+}
+
+:deep(.el-pagination) {
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 :deep(.el-button-group .el-button) {
@@ -956,22 +974,75 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
+  .emails-page {
+    padding: 0;
+  }
+
+  .operation-card {
+    margin-bottom: 12px;
+  }
+
+  .operation-card :deep(.el-card__body),
+  .table-card :deep(.el-card__body) {
+    padding: 12px;
+  }
+
   .operation-bar {
     flex-direction: column;
     align-items: stretch;
+    gap: 12px;
+  }
+
+  .operation-left {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .search-input {
+    width: 100%;
   }
 
   .operation-right {
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    justify-content: stretch;
+  }
+
+  .operation-right :deep(.el-button) {
+    width: 100%;
+    margin: 0;
   }
 
   .mailbox-switch {
     width: 100%;
+    justify-content: space-between;
   }
 
-  .operation-right .el-input {
+  .mailbox-switch :deep(.el-segmented) {
     flex: 1;
-    margin-right: 12px;
+  }
+
+  :deep(.el-table) {
+    min-width: 920px;
+  }
+
+  :deep(.el-pagination) {
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  :deep(.el-pagination .el-pagination__sizes),
+  :deep(.el-pagination .el-pagination__jump) {
+    display: none;
+  }
+}
+
+@media (max-width: 420px) {
+  .operation-right {
+    grid-template-columns: 1fr;
   }
 }
 </style>

@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     title="导入邮箱文件"
-    width="600px"
+    width="min(600px, calc(100vw - 24px))"
     :before-close="handleClose"
   >
     <div class="file-import-content">
@@ -445,6 +445,7 @@ const handleClose = () => {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .error-list {
@@ -508,5 +509,45 @@ const handleClose = () => {
 :deep(.el-alert--error) {
   background: linear-gradient(135deg, #fff2f0 0%, #fff1f0 100%);
   color: #f5222d;
+}
+
+@media (max-width: 768px) {
+  .file-import-content {
+    max-height: 68vh;
+    padding: 0;
+  }
+
+  :deep(.el-upload-dragger) {
+    padding: 28px 12px;
+  }
+
+  .el-icon--upload {
+    font-size: 48px;
+    margin-bottom: 12px;
+  }
+
+  .el-upload__text {
+    font-size: 14px;
+  }
+
+  .file-preview {
+    padding: 12px;
+  }
+
+  .preview-info {
+    justify-content: flex-start;
+  }
+
+  .dialog-footer {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    text-align: left;
+  }
+
+  .dialog-footer :deep(.el-button) {
+    width: 100%;
+    margin: 0;
+  }
 }
 </style>

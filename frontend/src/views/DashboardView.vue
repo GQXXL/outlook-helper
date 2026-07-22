@@ -450,6 +450,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
   padding: 0 16px;
+  min-width: 0;
 }
 
 @media (min-width: 1200px) {
@@ -648,6 +649,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-width: 0;
 }
 
 .pagination-wrapper {
@@ -673,5 +675,76 @@ onMounted(() => {
   font-size: 14px;
   height: 32px;
   line-height: 30px;
+}
+
+@media (max-width: 768px) {
+  .dashboard-content {
+    padding: 0;
+  }
+
+  .stats-cards,
+  .charts-section {
+    margin-bottom: 12px;
+  }
+
+  :deep(.stats-cards .el-col),
+  :deep(.charts-section .el-col) {
+    margin-bottom: 12px;
+  }
+
+  .stat-card {
+    height: auto;
+  }
+
+  .stat-item {
+    min-height: 76px;
+  }
+
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    margin-right: 12px;
+  }
+
+  .stat-value {
+    font-size: 24px;
+  }
+
+  .chart-card,
+  .operations-card {
+    height: auto;
+    min-height: 280px;
+  }
+
+  .card-header {
+    gap: 8px;
+    align-items: flex-start;
+  }
+
+  .header-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .operations-content {
+    overflow-x: auto;
+  }
+
+  .operations-content :deep(.el-table) {
+    min-width: 620px;
+  }
+
+  .pagination-wrapper {
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+
+  :deep(.pagination-wrapper .el-pagination__jump) {
+    display: none;
+  }
+
+  :deep(.el-card__body) {
+    padding: 12px;
+  }
 }
 </style>

@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     title="邮件查看"
-    width="800px"
+    width="min(800px, calc(100vw - 24px))"
     :before-close="handleClose"
   >
     <div v-if="mailData" class="mail-content">
@@ -218,12 +218,14 @@ const mailData = computed(() => currentMail.value || props.mailData)
 .mail-content {
   max-height: 600px;
   overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .mail-list {
   margin-bottom: 20px;
   padding-bottom: 20px;
   border-bottom: 1px solid #eee;
+  overflow-x: auto;
 }
 
 .mail-list h4 {
@@ -270,6 +272,7 @@ const mailData = computed(() => currentMail.value || props.mailData)
 .verify-code {
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .code-tag {
@@ -396,5 +399,52 @@ const mailData = computed(() => currentMail.value || props.mailData)
   padding: 2px 4px;
   border-radius: 3px;
   font-family: 'Courier New', monospace;
+}
+
+@media (max-width: 768px) {
+  .mail-content {
+    max-height: 68vh;
+  }
+
+  .mail-list :deep(.el-table) {
+    min-width: 620px;
+  }
+
+  .mail-header {
+    padding: 12px;
+  }
+
+  .header-item {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .header-item label {
+    min-width: 0;
+    margin-right: 0;
+  }
+
+  .verify-code {
+    align-items: flex-start;
+  }
+
+  .body-content {
+    padding: 12px;
+    max-height: 52vh;
+    overflow: auto;
+  }
+
+  .dialog-footer {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    text-align: left;
+  }
+
+  .dialog-footer :deep(.el-button) {
+    width: 100%;
+    margin: 0;
+  }
 }
 </style>

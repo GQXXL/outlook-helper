@@ -1,9 +1,18 @@
 <template>
-  <el-container class="layout-container">
+  <el-container
+    class="layout-container"
+    :class="{ 'is-mobile': isMobile, 'sidebar-open': mobileSidebarOpen }"
+  >
+    <div
+      v-if="isMobile && mobileSidebarOpen"
+      class="sidebar-overlay"
+      @click="closeMobileSidebar"
+    ></div>
+
     <!-- 侧边栏 -->
-    <el-aside :width="isCollapse ? '64px' : '200px'" class="sidebar">
+    <el-aside :width="asideWidth" class="sidebar">
       <div class="logo">
-        <div v-if="!isCollapse" class="logo-full">
+        <div v-if="!menuCollapse" class="logo-full">
           <svg class="logo-icon" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
             <path d="M896 42.666667H341.333333c-25.6 0-42.666667 17.066667-42.666666 42.666666v42.666667l341.333333 106.666667L938.666667 128V85.333333c0-25.6-17.066667-42.666667-42.666667-42.666666z" fill="#0364B8"></path>
             <path d="M1024 507.733333c0-8.533333-4.266667-17.066667-12.8-21.333333l-366.933333-209.066667s-4.266667 0-4.266667-4.266666c-8.533333-4.266667-12.8-4.266667-21.333333-4.266667s-17.066667 0-21.333334 4.266667c0 0-4.266667 0-4.266666 4.266666l-366.933334 209.066667c-8.533333 4.266667-12.8 12.8-12.8 21.333333s4.266667 17.066667 12.8 21.333334l366.933334 209.066666s4.266667 0 4.266666 4.266667c8.533333 4.266667 12.8 4.266667 21.333334 4.266667s17.066667 0 21.333333-4.266667c0 0 4.266667 0 4.266667-4.266667l366.933333-209.066666c8.533333-4.266667 12.8-12.8 12.8-21.333334z" fill="#0A2767"></path>
@@ -31,11 +40,12 @@
       <el-menu
         :default-active="activeMenu"
         class="sidebar-menu"
-        :collapse="isCollapse"
+        :collapse="menuCollapse"
         background-color="#2D3748"
         text-color="#E2E8F0"
         active-text-color="#4299E1"
         router
+        @select="handleMenuSelect"
       >
         <el-menu-item index="/">
           <el-icon><DataBoard /></el-icon>
@@ -66,11 +76,13 @@
         <div class="header-left">
           <el-button
             type="text"
-            @click="toggleCollapse"
+            @click="toggleNavigation"
             class="collapse-btn"
           >
             <el-icon size="18">
-              <Expand v-if="isCollapse" />
+              <Close v-if="isMobile && mobileSidebarOpen" />
+              <MenuIcon v-else-if="isMobile" />
+              <Expand v-else-if="isCollapse" />
               <Fold v-else />
             </el-icon>
           </el-button>
@@ -85,7 +97,7 @@
           <el-dropdown @command="handleCommand">
             <span class="user-dropdown">
               <el-icon><User /></el-icon>
-              <span>{{ authStore.user?.username }}</span>
+              <span class="username">{{ authStore.user?.username }}</span>
               <el-icon><ArrowDown /></el-icon>
             </span>
             <template #dropdown>
@@ -109,7 +121,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import {
@@ -121,7 +133,9 @@ import {
   ArrowDown,
   SwitchButton,
   Expand,
-  Fold
+  Fold,
+  Menu as MenuIcon,
+  Close
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 
@@ -131,8 +145,17 @@ const authStore = useAuthStore()
 
 const appTitle = import.meta.env.VITE_APP_TITLE || 'Outlook取件助手'
 const isCollapse = ref(false)
+const isMobile = ref(false)
+const mobileSidebarOpen = ref(false)
 
 const activeMenu = computed(() => route.path)
+const asideWidth = computed(() => {
+  if (isMobile.value) {
+    return '240px'
+  }
+  return isCollapse.value ? '64px' : '200px'
+})
+const menuCollapse = computed(() => !isMobile.value && isCollapse.value)
 
 const breadcrumbTitle = computed(() => {
   const routeMap: Record<string, string> = {
@@ -144,8 +167,29 @@ const breadcrumbTitle = computed(() => {
   return routeMap[route.path] || ''
 })
 
-const toggleCollapse = () => {
+const updateViewport = () => {
+  isMobile.value = window.innerWidth <= 768
+  if (!isMobile.value) {
+    mobileSidebarOpen.value = false
+  }
+}
+
+const toggleNavigation = () => {
+  if (isMobile.value) {
+    mobileSidebarOpen.value = !mobileSidebarOpen.value
+    return
+  }
   isCollapse.value = !isCollapse.value
+}
+
+const closeMobileSidebar = () => {
+  if (isMobile.value) {
+    mobileSidebarOpen.value = false
+  }
+}
+
+const handleMenuSelect = () => {
+  closeMobileSidebar()
 }
 
 const handleCommand = async (command: string) => {
@@ -168,16 +212,30 @@ const handleCommand = async (command: string) => {
     }
   }
 }
+
+onMounted(() => {
+  updateViewport()
+  window.addEventListener('resize', updateViewport)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateViewport)
+})
 </script>
 
 <style scoped>
 .layout-container {
-  height: 100vh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  overflow: hidden;
 }
 
 .sidebar {
   background-color: #2D3748;
   transition: width 0.3s;
+  flex-shrink: 0;
+  z-index: 20;
 }
 
 .logo {
@@ -282,12 +340,14 @@ const handleCommand = async (command: string) => {
   align-items: center;
   justify-content: space-between;
   padding: 0 20px;
+  flex-shrink: 0;
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 20px;
+  min-width: 0;
 }
 
 .collapse-btn {
@@ -298,6 +358,7 @@ const handleCommand = async (command: string) => {
 .header-right {
   display: flex;
   align-items: center;
+  min-width: 0;
 }
 
 .user-dropdown {
@@ -307,6 +368,7 @@ const handleCommand = async (command: string) => {
   cursor: pointer;
   color: #4A5568;
   font-size: 14px;
+  min-width: 0;
 }
 
 .user-dropdown:hover {
@@ -321,6 +383,12 @@ const handleCommand = async (command: string) => {
   background-size: 20px 20px;
   padding: 20px;
   overflow-y: auto;
+  overflow-x: hidden;
+  min-width: 0;
+}
+
+.layout-container > .el-container {
+  min-width: 0;
 }
 
 :deep(.el-menu-item) {
@@ -339,5 +407,78 @@ const handleCommand = async (command: string) => {
 
 :deep(.el-breadcrumb__inner.is-link) {
   color: #4299E1;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+@media (max-width: 768px) {
+  .layout-container {
+    display: block;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 240px !important;
+    max-width: 82vw;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 8px 0 24px rgba(15, 23, 42, 0.2);
+  }
+
+  .layout-container.sidebar-open .sidebar {
+    transform: translateX(0);
+  }
+
+  .logo {
+    justify-content: flex-start;
+    padding: 0 16px;
+  }
+
+  .header {
+    height: 56px;
+    padding: 0 12px;
+  }
+
+  .header-left {
+    gap: 10px;
+  }
+
+  .collapse-btn {
+    padding: 8px;
+  }
+
+  :deep(.el-breadcrumb) {
+    display: none;
+  }
+
+  .user-dropdown {
+    gap: 4px;
+  }
+
+  .username {
+    display: inline-block;
+    max-width: 88px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .main-content {
+    min-height: calc(100vh - 56px);
+    min-height: calc(100dvh - 56px);
+    padding: 12px;
+  }
+
+  :deep(.el-main) {
+    --el-main-padding: 12px;
+  }
 }
 </style>

@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     title="导出邮箱数据"
-    width="650px"
+    width="min(650px, calc(100vw - 24px))"
     :before-close="handleClose"
   >
     <el-form :model="exportForm" label-width="100px" class="export-form">

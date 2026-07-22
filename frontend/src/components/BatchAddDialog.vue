@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     title="批量添加邮箱"
-    width="600px"
+    width="min(600px, calc(100vw - 24px))"
     :before-close="handleClose"
   >
     <div class="batch-add-content">
@@ -276,6 +276,7 @@ const handleSubmit = async () => {
   padding: 16px;
   background-color: #f5f7fa;
   border-radius: 6px;
+  overflow-x: auto;
 }
 
 .preview-section h4,
@@ -302,5 +303,31 @@ const handleSubmit = async () => {
 
 :deep(.el-alert__content) {
   font-size: 13px;
+}
+
+@media (max-width: 768px) {
+  .batch-add-content {
+    max-height: 68vh;
+  }
+
+  .preview-section,
+  .error-section {
+    padding: 12px;
+  }
+
+  .preview-section :deep(.el-table) {
+    min-width: 520px;
+  }
+
+  .dialog-footer {
+    display: grid;
+    gap: 8px;
+    text-align: left;
+  }
+
+  .dialog-footer :deep(.el-button) {
+    width: 100%;
+    margin: 0;
+  }
 }
 </style>

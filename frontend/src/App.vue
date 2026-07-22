@@ -10,8 +10,10 @@ import { RouterView } from 'vue-router'
 
 <style>
 #app {
-  height: 100vh;
-  width: 100vw;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  overflow-x: hidden;
 }
 
 /* Element Plus 样式覆盖 */

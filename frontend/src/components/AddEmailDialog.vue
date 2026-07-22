@@ -2,7 +2,7 @@
   <el-dialog
     v-model="visible"
     title="添加邮箱"
-    width="500px"
+    width="min(500px, calc(100vw - 24px))"
     :before-close="handleClose"
   >
     <el-form

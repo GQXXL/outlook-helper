@@ -181,6 +181,7 @@ onMounted(() => {
   max-width: 100%;
   margin: 0 auto;
   padding: 0 16px;
+  min-width: 0;
 }
 
 @media (min-width: 1200px) {
@@ -207,6 +208,7 @@ onMounted(() => {
 .operation-right {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .tag-card {
@@ -304,14 +306,39 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
+  .tags-page {
+    padding: 0;
+  }
+
+  .operation-card {
+    margin-bottom: 12px;
+  }
+
+  .operation-card :deep(.el-card__body) {
+    padding: 12px;
+  }
+
   .operation-bar {
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     align-items: stretch;
   }
-  
+
+  .operation-left,
   .operation-right {
-    justify-content: center;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .operation-left :deep(.el-button),
+  .operation-right :deep(.el-button) {
+    width: 100%;
+    margin: 0;
+  }
+
+  .tag-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 }
 </style>

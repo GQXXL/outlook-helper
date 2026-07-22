@@ -48,7 +48,7 @@
     <el-dialog
       v-model="dialogVisible"
       :title="editingAccessCode ? '编辑授权码' : '新增授权码'"
-      width="640px"
+      width="min(640px, calc(100vw - 24px))"
     >
       <el-form label-width="90px">
         <el-form-item label="名称">
@@ -79,7 +79,7 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="codeDialogVisible" title="请立即保存授权码" width="560px">
+    <el-dialog v-model="codeDialogVisible" title="请立即保存授权码" width="min(560px, calc(100vw - 24px))">
       <el-alert
         title="授权码明文只会展示这一次，关闭后无法再次查看，只能重置。"
         type="warning"
@@ -293,6 +293,7 @@ onMounted(loadData)
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-width: 0;
 }
 
 .operation-card,
@@ -320,6 +321,8 @@ onMounted(loadData)
 .operation-actions {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .email-selector {
@@ -344,5 +347,51 @@ onMounted(loadData)
 
 .generated-code {
   margin-top: 16px;
+}
+
+.table-card {
+  overflow: hidden;
+}
+
+.table-card :deep(.el-card__body) {
+  overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+  .access-codes-page {
+    gap: 12px;
+  }
+
+  .operation-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .operation-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .operation-actions :deep(.el-button) {
+    width: 100%;
+    margin: 0;
+  }
+
+  .operation-card :deep(.el-card__body),
+  .table-card :deep(.el-card__body) {
+    padding: 12px;
+  }
+
+  :deep(.el-table) {
+    min-width: 760px;
+  }
+
+  :deep(.el-form) {
+    --el-form-label-width: 72px;
+  }
+
+  .email-selector {
+    max-height: 220px;
+  }
 }
 </style>
