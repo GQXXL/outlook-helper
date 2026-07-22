@@ -75,6 +75,7 @@
       <el-table
         v-loading="loading"
         :data="emails"
+        class="desktop-email-table"
         style="width: 100%"
         @selection-change="handleSelectionChange"
       >
@@ -175,6 +176,110 @@
             </template>
           </el-table-column>
         </el-table>
+
+        <div class="mobile-email-list" v-loading="loading">
+          <el-empty v-if="!loading && emails.length === 0" description="暂无邮箱" />
+
+          <article
+            v-for="email in emails"
+            :key="email.id"
+            class="mobile-email-card"
+            :class="{ selected: isEmailSelected(email) }"
+          >
+            <div class="mobile-card-header">
+              <el-checkbox
+                v-if="authStore.isAdmin"
+                :model-value="isEmailSelected(email)"
+                @change="handleMobileSelectionChange(email, $event)"
+              />
+
+              <div class="mobile-email-main">
+                <button
+                  type="button"
+                  class="mobile-email-address"
+                  :title="authStore.isAdmin ? '点击标记邮箱' : '邮箱地址'"
+                  @click="handleEmailClick(email)"
+                >
+                  {{ email.email_address }}
+                </button>
+                <div class="mobile-email-subtitle">
+                  {{ email.remark || '无备注' }}
+                </div>
+              </div>
+
+              <el-button
+                size="small"
+                circle
+                class="mobile-copy-button"
+                @click.stop="copyEmailAddress(email.email_address)"
+                title="复制邮箱地址"
+              >
+                <el-icon><CopyDocument /></el-icon>
+              </el-button>
+            </div>
+
+            <div class="mobile-tags-row">
+              <template v-if="email.tags && email.tags.length > 0">
+                <el-tag
+                  v-for="tag in email.tags"
+                  :key="tag.id"
+                  :color="tag.color"
+                  size="small"
+                  class="tag-item"
+                >
+                  {{ tag.name }}
+                </el-tag>
+              </template>
+              <span v-else class="mobile-empty-tags">暂无标签</span>
+            </div>
+
+            <div class="mobile-card-meta">
+              <div>
+                <span>添加时间</span>
+                <strong>{{ formatTime(email.created_at) }}</strong>
+              </div>
+              <div>
+                <span>最后操作</span>
+                <strong>{{ email.last_operation_at ? formatTime(email.last_operation_at) : '-' }}</strong>
+              </div>
+            </div>
+
+            <div class="mobile-card-actions">
+              <el-button
+                type="primary"
+                plain
+                :loading="operationLoading.getLatestMail[email.id]"
+                :disabled="operationLoading.getLatestMail[email.id]"
+                @click="getLatestMail(email)"
+              >
+                <el-icon><Bell /></el-icon>
+                最新邮件
+              </el-button>
+
+              <el-button
+                plain
+                :loading="operationLoading.getAllMails[email.id]"
+                :disabled="operationLoading.getAllMails[email.id]"
+                @click="getAllMails(email)"
+              >
+                <el-icon><Grid /></el-icon>
+                全部邮件
+              </el-button>
+
+              <el-button
+                v-if="authStore.isAdmin"
+                type="danger"
+                plain
+                :loading="operationLoading.deleteEmail[email.id]"
+                :disabled="operationLoading.deleteEmail[email.id]"
+                @click="deleteEmail(email)"
+              >
+                <el-icon><Close /></el-icon>
+                删除
+              </el-button>
+            </div>
+          </article>
+        </div>
 
         <!-- 分页 -->
         <el-pagination
@@ -345,6 +450,25 @@ const handleSearch = () => {
 
 const handleSelectionChange = (selection: Email[]) => {
   selectedEmails.value = selection
+}
+
+const isEmailSelected = (email: Email) => {
+  return selectedEmails.value.some(item => item.id === email.id)
+}
+
+const toggleEmailSelection = (email: Email, checked: boolean) => {
+  if (checked) {
+    if (!isEmailSelected(email)) {
+      selectedEmails.value = [...selectedEmails.value, email]
+    }
+    return
+  }
+
+  selectedEmails.value = selectedEmails.value.filter(item => item.id !== email.id)
+}
+
+const handleMobileSelectionChange = (email: Email, checked: string | number | boolean) => {
+  toggleEmailSelection(email, Boolean(checked))
 }
 
 const handleSizeChange = (size: number) => {
@@ -717,6 +841,10 @@ onMounted(() => {
   overflow: hidden;
 }
 
+.mobile-email-list {
+  display: none;
+}
+
 .tags-container {
   display: flex;
   flex-wrap: nowrap;
@@ -941,6 +1069,128 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.mobile-email-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+  padding: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.mobile-email-card.selected {
+  border-color: #409eff;
+  box-shadow: 0 8px 22px rgba(64, 158, 255, 0.16);
+}
+
+.mobile-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mobile-email-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-email-address {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #1f2937;
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-email-address:active {
+  color: #409eff;
+}
+
+.mobile-email-subtitle {
+  margin-top: 4px;
+  color: #718096;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-copy-button {
+  flex-shrink: 0;
+}
+
+.mobile-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  min-height: 24px;
+}
+
+.mobile-empty-tags {
+  color: #a0aec0;
+  font-size: 12px;
+}
+
+.mobile-card-meta {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+
+.mobile-card-meta div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mobile-card-meta span {
+  color: #718096;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.mobile-card-meta strong {
+  color: #2d3748;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: right;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-card-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mobile-card-actions :deep(.el-button) {
+  width: 100%;
+  margin: 0;
+  min-height: 38px;
+}
+
 /* 自定义加载遮罩样式 - 仅限于卡片区域 */
 .table-card :deep(.el-loading-mask) {
   background-color: rgba(255, 255, 255, 0.95);
@@ -987,6 +1237,10 @@ onMounted(() => {
     padding: 12px;
   }
 
+  .table-card :deep(.el-card__body) {
+    overflow-x: visible;
+  }
+
   .operation-bar {
     flex-direction: column;
     align-items: stretch;
@@ -1024,8 +1278,15 @@ onMounted(() => {
     flex: 1;
   }
 
-  :deep(.el-table) {
-    min-width: 920px;
+  .desktop-email-table {
+    display: none;
+  }
+
+  .mobile-email-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-height: 160px;
   }
 
   :deep(.el-pagination) {
@@ -1042,6 +1303,10 @@ onMounted(() => {
 
 @media (max-width: 420px) {
   .operation-right {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-card-actions {
     grid-template-columns: 1fr;
   }
 }

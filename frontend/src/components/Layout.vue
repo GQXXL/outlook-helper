@@ -81,7 +81,7 @@
           >
             <el-icon size="18">
               <Close v-if="isMobile && mobileSidebarOpen" />
-              <MenuIcon v-else-if="isMobile" />
+              <Fold v-else-if="isMobile" />
               <Expand v-else-if="isCollapse" />
               <Fold v-else />
             </el-icon>
@@ -134,7 +134,6 @@ import {
   SwitchButton,
   Expand,
   Fold,
-  Menu as MenuIcon,
   Close
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
