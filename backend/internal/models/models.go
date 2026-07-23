@@ -145,6 +145,38 @@ type BatchAddEmailRequest struct {
 	Emails []AddEmailRequest `json:"emails" binding:"required,dive"`
 }
 
+// OAuthDeviceCodeRequest 设备授权码请求
+type OAuthDeviceCodeRequest struct {
+	ClientID string `json:"client_id" binding:"required"`
+	Scope    string `json:"scope"`
+}
+
+// OAuthDeviceCodeResponse 设备授权码响应
+type OAuthDeviceCodeResponse struct {
+	DeviceCode      string `json:"device_code"`
+	UserCode        string `json:"user_code"`
+	VerificationURI string `json:"verification_uri"`
+	ExpiresIn       int    `json:"expires_in"`
+	Interval        int    `json:"interval"`
+	Message         string `json:"message"`
+}
+
+// OAuthDeviceTokenRequest 设备授权Token轮询请求
+type OAuthDeviceTokenRequest struct {
+	ClientID   string `json:"client_id" binding:"required"`
+	DeviceCode string `json:"device_code" binding:"required"`
+}
+
+// OAuthDeviceTokenResponse 设备授权Token轮询响应
+type OAuthDeviceTokenResponse struct {
+	Status               string `json:"status"`
+	RefreshToken         string `json:"refresh_token,omitempty"`
+	AccessTokenExpiresIn int    `json:"access_token_expires_in,omitempty"`
+	Scope                string `json:"scope,omitempty"`
+	Error                string `json:"error,omitempty"`
+	ErrorDescription     string `json:"error_description,omitempty"`
+}
+
 // CreateTagRequest 创建标记请求
 type CreateTagRequest struct {
 	Name        string `json:"name" binding:"required"`

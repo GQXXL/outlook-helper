@@ -150,7 +150,7 @@ docker run -d \
 
 ### custom分支二开部署
 
-`custom` 分支支持管理员创建用户授权码，并把授权码绑定到指定邮箱。管理员使用 `AUTH_TOKEN` 登录后可以查看和管理全部邮箱；用户使用管理员分配的授权码登录后，只能查看绑定邮箱并取件。
+`custom` 分支支持管理员创建用户授权码，并把授权码绑定到指定邮箱。管理员使用 `AUTH_TOKEN` 登录后可以查看和管理全部邮箱；用户使用管理员分配的授权码登录后，只能查看绑定邮箱并取件。管理员还可以在邮箱管理中使用“授权添加”，通过 Microsoft 设备授权首次获取 Outlook RefreshToken 并添加邮箱。
 
 ```bash
 git clone -b custom https://github.com/GQXXL/outlook-helper.git /opt/outlook-helper
@@ -175,12 +175,19 @@ docker run -d \
   outlook-helper:custom
 ```
 
+如果你的 msOauth2api 配置了 `PASSWORD`，在 `docker run` 中额外加入：
+
+```bash
+  -e OUTLOOK_API_PASSWORD=your-msoauth2api-password \
+```
+
 ### 环境变量配置
 
 | 变量名 | 说明 | 默认值                |
 |--------|------|--------------------|
 | `AUTH_TOKEN` | 授权码（**必须配置**） | 无，必须设置             |
 | `OUTLOOK_API_BASE_URL` | Outlook API地址（**必须配置**） | 无，必须设置 |
+| `OUTLOOK_API_PASSWORD` | msOauth2api 的 `PASSWORD`，未配置密码时留空 | 空 |
 | `EMAIL_VALIDATION_WORKERS` | 令牌验证并发数 | 5                  |
 
 ### 📁 数据持久化

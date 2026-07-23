@@ -105,6 +105,34 @@ export interface BatchAddEmailRequest {
   emails: AddEmailRequest[]
 }
 
+export interface OAuthDeviceCodeRequest {
+  client_id: string
+  scope?: string
+}
+
+export interface OAuthDeviceCodeResponse {
+  device_code: string
+  user_code: string
+  verification_uri: string
+  expires_in: number
+  interval: number
+  message: string
+}
+
+export interface OAuthDeviceTokenRequest {
+  client_id: string
+  device_code: string
+}
+
+export interface OAuthDeviceTokenResponse {
+  status: 'pending' | 'authorized' | 'failed'
+  refresh_token?: string
+  access_token_expires_in?: number
+  scope?: string
+  error?: string
+  error_description?: string
+}
+
 // 授权码相关类型
 export interface AccessCode {
   id: number
@@ -280,6 +308,19 @@ export const emailAPI = {
   exportEmails: (
     data: ExportEmailRequest,
   ): Promise<AxiosResponse<APIResponse<ExportEmailResponse>>> => api.post('/emails/export', data),
+}
+
+// OAuth API
+export const oauthAPI = {
+  createDeviceCode: (
+    data: OAuthDeviceCodeRequest,
+  ): Promise<AxiosResponse<APIResponse<OAuthDeviceCodeResponse>>> =>
+    api.post('/oauth/device-code', data),
+
+  pollDeviceToken: (
+    data: OAuthDeviceTokenRequest,
+  ): Promise<AxiosResponse<APIResponse<OAuthDeviceTokenResponse>>> =>
+    api.post('/oauth/device-token', data),
 }
 
 // 标记API

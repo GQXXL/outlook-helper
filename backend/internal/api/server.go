@@ -22,7 +22,8 @@ type Server struct {
 	db           *database.DB
 	router       *gin.Engine
 	authService  *auth.Service
-	emailService *services.EmailService
+	emailService   *services.EmailService
+	outlookService *services.OutlookService
 }
 
 // NewServer 创建新的API服务器
@@ -31,7 +32,7 @@ func NewServer(cfg *config.Config, db *database.DB) *Server {
 	authService := auth.NewService(db, cfg.JWTSecret, cfg.JWTExpire, cfg)
 
 	// 创建Outlook服务
-	outlookService := services.NewOutlookService(cfg.OutlookAPI)
+	outlookService := services.NewOutlookService(cfg.OutlookAPI, cfg.OutlookAPIPassword)
 
 	// 创建邮件服务
 	emailService := services.NewEmailService(db, outlookService, cfg)
@@ -40,7 +41,8 @@ func NewServer(cfg *config.Config, db *database.DB) *Server {
 		config:       cfg,
 		db:           db,
 		authService:  authService,
-		emailService: emailService,
+		emailService:   emailService,
+		outlookService: outlookService,
 	}
 
 	server.setupRouter()
@@ -141,6 +143,14 @@ func (s *Server) setupRouter() {
 				emails.DELETE("/:id/inbox", auth.AdminMiddleware(), s.handleClearInbox)
 				emails.PUT("/:id/tags", auth.AdminMiddleware(), s.handleTagEmail)
 				emails.DELETE("/:id", auth.AdminMiddleware(), s.handleDeleteEmail)
+			}
+
+			// OAuth授权
+			oauth := protected.Group("/oauth")
+			oauth.Use(auth.AdminMiddleware())
+			{
+				oauth.POST("/device-code", s.handleOAuthDeviceCode)
+				oauth.POST("/device-token", s.handleOAuthDeviceToken)
 			}
 
 			// 标记管理
@@ -755,6 +765,64 @@ func (s *Server) handleAddEmail(c *gin.Context) {
 		Success: true,
 		Message: "添加邮箱成功",
 		Data:    email,
+	})
+}
+
+// handleOAuthDeviceCode 创建微软设备授权码
+func (s *Server) handleOAuthDeviceCode(c *gin.Context) {
+	var req models.OAuthDeviceCodeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "请求参数错误",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	response, err := s.outlookService.StartDeviceAuthorization(req.ClientID, req.Scope)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "创建设备授权码失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Success: true,
+		Message: "创建设备授权码成功",
+		Data:    response,
+	})
+}
+
+// handleOAuthDeviceToken 轮询微软设备授权结果
+func (s *Server) handleOAuthDeviceToken(c *gin.Context) {
+	var req models.OAuthDeviceTokenRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "请求参数错误",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	response, err := s.outlookService.PollDeviceToken(req.ClientID, req.DeviceCode)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "获取授权结果失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Success: true,
+		Message: "获取授权结果成功",
+		Data:    response,
 	})
 }
 

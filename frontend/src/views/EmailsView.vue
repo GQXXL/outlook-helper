@@ -45,6 +45,10 @@
               <el-icon><Plus /></el-icon>
               添加邮箱
             </el-button>
+            <el-button type="success" plain @click="showOAuthDialog = true">
+              <el-icon><Key /></el-icon>
+              授权添加
+            </el-button>
             <el-button @click="showBatchDialog = true">
               <el-icon><Upload /></el-icon>
               批量添加
@@ -326,6 +330,13 @@
     <!-- 添加邮箱对话框 -->
     <AddEmailDialog v-if="authStore.isAdmin" v-model="showAddDialog" @success="handleAddSuccess" />
 
+    <!-- OAuth授权添加对话框 -->
+    <OAuthDeviceDialog
+      v-if="authStore.isAdmin"
+      v-model="showOAuthDialog"
+      @success="handleAddSuccess"
+    />
+
     <!-- 批量添加对话框 -->
     <BatchAddDialog
       v-if="authStore.isAdmin"
@@ -389,8 +400,10 @@ import {
   Grid,
   Close,
   Download,
+  Key,
 } from '@element-plus/icons-vue'
 import AddEmailDialog from '@/components/AddEmailDialog.vue'
+import OAuthDeviceDialog from '@/components/OAuthDeviceDialog.vue'
 import BatchAddDialog from '@/components/BatchAddDialog.vue'
 import BatchTagDialog from '@/components/BatchTagDialog.vue'
 import MailViewDialog from '@/components/MailViewDialog.vue'
@@ -425,6 +438,7 @@ const operationLoading = ref({
 
 // 对话框状态
 const showAddDialog = ref(false)
+const showOAuthDialog = ref(false)
 const showBatchDialog = ref(false)
 const showBatchTagDialog = ref(false)
 const showMailDialog = ref(false)

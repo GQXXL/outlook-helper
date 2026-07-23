@@ -17,6 +17,7 @@ type Config struct {
 	JWTSecret              string
 	JWTExpire              int
 	OutlookAPI             string
+	OutlookAPIPassword     string
 	LogLevel               string
 	LogFile                string
 	SkipEmailValidation    bool   // 是否跳过邮箱验证（调试用）
@@ -69,6 +70,7 @@ func Load() (*Config, error) {
 		JWTSecret:              getEnv("JWT_SECRET", "default-secret-change-this"),
 		JWTExpire:              getEnvAsInt("JWT_EXPIRE_HOURS", 6),
 		OutlookAPI:             outlookAPI,
+		OutlookAPIPassword:     getEnv("OUTLOOK_API_PASSWORD", ""),
 		LogLevel:               getEnv("LOG_LEVEL", "info"),
 		LogFile:                getEnv("LOG_FILE", "./logs/app.log"),
 		SkipEmailValidation:    getEnvAsBool("SKIP_EMAIL_VALIDATION", false),

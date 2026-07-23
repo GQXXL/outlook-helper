@@ -13,6 +13,8 @@ services:
       - DB_PATH=./data/outlook_helper.db
       - AUTH_TOKEN=your-super-secret-auth-token-change-this
       - OUTLOOK_API_BASE_URL=https://your-outlook-api-domain.vercel.app
+      # msOauth2api 未配置 PASSWORD 时留空或删除此项
+      - OUTLOOK_API_PASSWORD=
       - LOG_LEVEL=info
       - LOG_FILE=./logs/app.log
       - ADMIN_USERNAME=admin

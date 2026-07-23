@@ -54,7 +54,7 @@ func (s *EmailService) AddEmail(userID int, req *models.AddEmailRequest, ipAddre
 
 	// 验证邮箱凭据（如果配置允许跳过验证则跳过）
 	if !s.config.SkipEmailValidation {
-		if err := s.outlookService.ValidateEmailCredentials(email); err != nil {
+		if err := s.refreshNewEmailToken(email); err != nil {
 			// 记录验证失败日志，包含详细错误信息
 			s.logRepo.LogEmail(userID, "email_validation_failed", 0,
 				fmt.Sprintf("邮箱 %s 凭据验证失败: %v", req.EmailAddress, err),
@@ -144,7 +144,7 @@ func (s *EmailService) BatchAddEmails(userID int, req *models.BatchAddEmailReque
 
 				// 验证邮箱凭据（如果配置允许跳过验证则跳过）
 				if !s.config.SkipEmailValidation {
-					if err := s.outlookService.ValidateEmailCredentials(email); err != nil {
+					if err := s.refreshNewEmailToken(email); err != nil {
 						// 提供更详细的错误信息，包含具体的API响应
 						result.error = fmt.Sprintf("邮箱 %s: %v", task.req.EmailAddress, err)
 						resultChan <- result
@@ -233,6 +233,23 @@ func (s *EmailService) GetEmailByID(userID, emailID int) (*models.Email, error) 
 	return email, nil
 }
 
+func (s *EmailService) refreshNewEmailToken(email *models.Email) error {
+	newRefreshToken, err := s.outlookService.RefreshToken(email)
+	if err != nil {
+		email.RefreshTokenStatus = models.RefreshTokenStatusRefreshFailed
+		return fmt.Errorf("刷新RefreshToken失败: %w", err)
+	}
+
+	now := time.Now().UTC()
+	expiresAt := now.Add(refreshTokenEstimatedValidity)
+	email.RefreshToken = newRefreshToken
+	email.RefreshTokenUpdatedAt = &now
+	email.RefreshTokenExpiresAt = &expiresAt
+	email.RefreshTokenStatus = models.RefreshTokenStatusValid
+
+	return nil
+}
+
 func (s *EmailService) refreshTokenForOperation(userID int, email *models.Email, ipAddress, userAgent string) error {
 	newRefreshToken, err := s.outlookService.RefreshToken(email)
 	if err != nil {
@@ -283,7 +300,7 @@ func (s *EmailService) UpdateEmail(userID int, emailID int, req *models.AddEmail
 	email.RefreshTokenStatus = models.RefreshTokenStatusUnknown
 
 	// 验证新的凭据
-	if err := s.outlookService.ValidateEmailCredentials(email); err != nil {
+	if err := s.refreshNewEmailToken(email); err != nil {
 		return nil, fmt.Errorf("邮箱凭据验证失败: %v", err)
 	}
 
