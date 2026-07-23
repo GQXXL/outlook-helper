@@ -3,9 +3,18 @@ package database
 import (
 	"database/sql"
 	"strings"
+	"time"
 
 	"outlook-helper/backend/internal/models"
 )
+
+const emailSelectColumns = `id, user_id, email_address, password, client_id, refresh_token, remark,
+       refresh_token_updated_at, refresh_token_expires_at, refresh_token_status,
+       last_operation_at, created_at, updated_at`
+
+const emailSelectColumnsWithAlias = `e.id, e.user_id, e.email_address, e.password, e.client_id, e.refresh_token, e.remark,
+       e.refresh_token_updated_at, e.refresh_token_expires_at, e.refresh_token_status,
+       e.last_operation_at, e.created_at, e.updated_at`
 
 // EmailRepository 邮箱数据库操作
 type EmailRepository struct {
@@ -17,11 +26,54 @@ func NewEmailRepository(db *sql.DB) *EmailRepository {
 	return &EmailRepository{db: db}
 }
 
+type emailScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanEmail(scanner emailScanner, email *models.Email) error {
+	err := scanner.Scan(
+		&email.ID,
+		&email.UserID,
+		&email.EmailAddress,
+		&email.Password,
+		&email.ClientID,
+		&email.RefreshToken,
+		&email.Remark,
+		&email.RefreshTokenUpdatedAt,
+		&email.RefreshTokenExpiresAt,
+		&email.RefreshTokenStatus,
+		&email.LastOperationAt,
+		&email.CreatedAt,
+		&email.UpdatedAt,
+	)
+	if err != nil {
+		return err
+	}
+
+	if email.RefreshTokenStatus == "" {
+		email.RefreshTokenStatus = models.RefreshTokenStatusUnknown
+	}
+
+	return nil
+}
+
+func normalizeRefreshTokenStatus(email *models.Email) {
+	if email.RefreshTokenStatus == "" {
+		email.RefreshTokenStatus = models.RefreshTokenStatusUnknown
+	}
+}
+
 // CreateEmail 创建邮箱
 func (r *EmailRepository) CreateEmail(email *models.Email) (*models.Email, error) {
+	normalizeRefreshTokenStatus(email)
+
 	query := `
-		INSERT INTO emails (user_id, email_address, password, client_id, refresh_token, remark, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO emails (
+			user_id, email_address, password, client_id, refresh_token,
+			refresh_token_updated_at, refresh_token_expires_at, refresh_token_status,
+			remark, created_at, updated_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
 
 	result, err := r.db.Exec(query,
@@ -30,6 +82,9 @@ func (r *EmailRepository) CreateEmail(email *models.Email) (*models.Email, error
 		email.Password,
 		email.ClientID,
 		email.RefreshToken,
+		email.RefreshTokenUpdatedAt,
+		email.RefreshTokenExpiresAt,
+		email.RefreshTokenStatus,
 		email.Remark,
 	)
 	if err != nil {
@@ -47,24 +102,12 @@ func (r *EmailRepository) CreateEmail(email *models.Email) (*models.Email, error
 // GetEmailByID 根据ID获取邮箱
 func (r *EmailRepository) GetEmailByID(id int) (*models.Email, error) {
 	query := `
-		SELECT id, user_id, email_address, password, client_id, refresh_token, remark, 
-		       last_operation_at, created_at, updated_at
+		SELECT ` + emailSelectColumns + `
 		FROM emails WHERE id = ?
 	`
 
 	email := &models.Email{}
-	err := r.db.QueryRow(query, id).Scan(
-		&email.ID,
-		&email.UserID,
-		&email.EmailAddress,
-		&email.Password,
-		&email.ClientID,
-		&email.RefreshToken,
-		&email.Remark,
-		&email.LastOperationAt,
-		&email.CreatedAt,
-		&email.UpdatedAt,
-	)
+	err := scanEmail(r.db.QueryRow(query, id), email)
 
 	if err != nil {
 		return nil, err
@@ -82,8 +125,7 @@ func (r *EmailRepository) GetEmailByID(id int) (*models.Email, error) {
 // GetEmailsByUserID 根据用户ID获取邮箱列表
 func (r *EmailRepository) GetEmailsByUserID(userID int, limit, offset int) ([]models.Email, error) {
 	query := `
-		SELECT id, user_id, email_address, password, client_id, refresh_token, remark, 
-		       last_operation_at, created_at, updated_at
+		SELECT ` + emailSelectColumns + `
 		FROM emails 
 		WHERE user_id = ? 
 		ORDER BY created_at DESC
@@ -99,19 +141,7 @@ func (r *EmailRepository) GetEmailsByUserID(userID int, limit, offset int) ([]mo
 	var emails []models.Email
 	for rows.Next() {
 		var email models.Email
-		err := rows.Scan(
-			&email.ID,
-			&email.UserID,
-			&email.EmailAddress,
-			&email.Password,
-			&email.ClientID,
-			&email.RefreshToken,
-			&email.Remark,
-			&email.LastOperationAt,
-			&email.CreatedAt,
-			&email.UpdatedAt,
-		)
-		if err != nil {
+		if err := scanEmail(rows, &email); err != nil {
 			return nil, err
 		}
 
@@ -124,14 +154,13 @@ func (r *EmailRepository) GetEmailsByUserID(userID int, limit, offset int) ([]mo
 		emails = append(emails, email)
 	}
 
-	return emails, nil
+	return emails, rows.Err()
 }
 
 // SearchEmails 搜索邮箱
 func (r *EmailRepository) SearchEmails(userID int, keyword string, limit, offset int) ([]models.Email, error) {
 	query := `
-		SELECT id, user_id, email_address, password, client_id, refresh_token, remark, 
-		       last_operation_at, created_at, updated_at
+		SELECT ` + emailSelectColumns + `
 		FROM emails 
 		WHERE user_id = ? AND (email_address LIKE ? OR remark LIKE ?)
 		ORDER BY created_at DESC
@@ -148,19 +177,7 @@ func (r *EmailRepository) SearchEmails(userID int, keyword string, limit, offset
 	var emails []models.Email
 	for rows.Next() {
 		var email models.Email
-		err := rows.Scan(
-			&email.ID,
-			&email.UserID,
-			&email.EmailAddress,
-			&email.Password,
-			&email.ClientID,
-			&email.RefreshToken,
-			&email.Remark,
-			&email.LastOperationAt,
-			&email.CreatedAt,
-			&email.UpdatedAt,
-		)
-		if err != nil {
+		if err := scanEmail(rows, &email); err != nil {
 			return nil, err
 		}
 
@@ -173,14 +190,13 @@ func (r *EmailRepository) SearchEmails(userID int, keyword string, limit, offset
 		emails = append(emails, email)
 	}
 
-	return emails, nil
+	return emails, rows.Err()
 }
 
 // GetEmailsByAccessCodeID 获取授权码可访问的邮箱列表
 func (r *EmailRepository) GetEmailsByAccessCodeID(accessCodeID int, limit, offset int) ([]models.Email, error) {
 	query := `
-		SELECT e.id, e.user_id, e.email_address, e.password, e.client_id, e.refresh_token, e.remark,
-		       e.last_operation_at, e.created_at, e.updated_at
+		SELECT ` + emailSelectColumnsWithAlias + `
 		FROM emails e
 		INNER JOIN access_code_emails ace ON ace.email_id = e.id
 		WHERE ace.access_code_id = ?
@@ -200,8 +216,7 @@ func (r *EmailRepository) GetEmailsByAccessCodeID(accessCodeID int, limit, offse
 // SearchEmailsByAccessCodeID 搜索授权码可访问的邮箱
 func (r *EmailRepository) SearchEmailsByAccessCodeID(accessCodeID int, keyword string, limit, offset int) ([]models.Email, error) {
 	query := `
-		SELECT e.id, e.user_id, e.email_address, e.password, e.client_id, e.refresh_token, e.remark,
-		       e.last_operation_at, e.created_at, e.updated_at
+		SELECT ` + emailSelectColumnsWithAlias + `
 		FROM emails e
 		INNER JOIN access_code_emails ace ON ace.email_id = e.id
 		WHERE ace.access_code_id = ? AND (e.email_address LIKE ? OR e.remark LIKE ?)
@@ -221,9 +236,13 @@ func (r *EmailRepository) SearchEmailsByAccessCodeID(accessCodeID int, keyword s
 
 // UpdateEmail 更新邮箱
 func (r *EmailRepository) UpdateEmail(email *models.Email) error {
+	normalizeRefreshTokenStatus(email)
+
 	query := `
 		UPDATE emails 
-		SET email_address = ?, password = ?, client_id = ?, refresh_token = ?, remark = ?, updated_at = CURRENT_TIMESTAMP
+		SET email_address = ?, password = ?, client_id = ?, refresh_token = ?,
+		    refresh_token_updated_at = ?, refresh_token_expires_at = ?, refresh_token_status = ?,
+		    remark = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
 	`
 
@@ -232,10 +251,49 @@ func (r *EmailRepository) UpdateEmail(email *models.Email) error {
 		email.Password,
 		email.ClientID,
 		email.RefreshToken,
+		email.RefreshTokenUpdatedAt,
+		email.RefreshTokenExpiresAt,
+		email.RefreshTokenStatus,
 		email.Remark,
 		email.ID,
 	)
 
+	return err
+}
+
+// UpdateRefreshToken 写回刷新后的RefreshToken和预计有效期
+func (r *EmailRepository) UpdateRefreshToken(emailID int, refreshToken string, updatedAt, expiresAt time.Time, status string) error {
+	if status == "" {
+		status = models.RefreshTokenStatusValid
+	}
+
+	query := `
+		UPDATE emails
+		SET refresh_token = ?,
+		    refresh_token_updated_at = ?,
+		    refresh_token_expires_at = ?,
+		    refresh_token_status = ?,
+		    updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`
+
+	_, err := r.db.Exec(query, refreshToken, updatedAt, expiresAt, status, emailID)
+	return err
+}
+
+// UpdateRefreshTokenStatus 更新RefreshToken刷新状态
+func (r *EmailRepository) UpdateRefreshTokenStatus(emailID int, status string) error {
+	if status == "" {
+		status = models.RefreshTokenStatusUnknown
+	}
+
+	query := `
+		UPDATE emails
+		SET refresh_token_status = ?, updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`
+
+	_, err := r.db.Exec(query, status, emailID)
 	return err
 }
 
@@ -316,8 +374,12 @@ func (r *EmailRepository) BatchCreateEmails(emails []*models.Email) ([]models.Em
 	defer tx.Rollback()
 
 	query := `
-		INSERT INTO emails (user_id, email_address, password, client_id, refresh_token, remark, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+		INSERT INTO emails (
+			user_id, email_address, password, client_id, refresh_token,
+			refresh_token_updated_at, refresh_token_expires_at, refresh_token_status,
+			remark, created_at, updated_at
+		)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
 	`
 
 	stmt, err := tx.Prepare(query)
@@ -328,12 +390,17 @@ func (r *EmailRepository) BatchCreateEmails(emails []*models.Email) ([]models.Em
 
 	var createdEmails []models.Email
 	for _, email := range emails {
+		normalizeRefreshTokenStatus(email)
+
 		result, err := stmt.Exec(
 			email.UserID,
 			email.EmailAddress,
 			email.Password,
 			email.ClientID,
 			email.RefreshToken,
+			email.RefreshTokenUpdatedAt,
+			email.RefreshTokenExpiresAt,
+			email.RefreshTokenStatus,
 			email.Remark,
 		)
 		if err != nil {
@@ -347,12 +414,15 @@ func (r *EmailRepository) BatchCreateEmails(emails []*models.Email) ([]models.Em
 
 		// 创建返回的邮箱对象
 		createdEmail := models.Email{
-			ID:           int(id),
-			UserID:       email.UserID,
-			EmailAddress: email.EmailAddress,
-			Remark:       email.Remark,
-			CreatedAt:    email.CreatedAt,
-			UpdatedAt:    email.UpdatedAt,
+			ID:                    int(id),
+			UserID:                email.UserID,
+			EmailAddress:          email.EmailAddress,
+			Remark:                email.Remark,
+			RefreshTokenUpdatedAt: email.RefreshTokenUpdatedAt,
+			RefreshTokenExpiresAt: email.RefreshTokenExpiresAt,
+			RefreshTokenStatus:    email.RefreshTokenStatus,
+			CreatedAt:             email.CreatedAt,
+			UpdatedAt:             email.UpdatedAt,
 		}
 		createdEmails = append(createdEmails, createdEmail)
 	}
@@ -478,8 +548,7 @@ func (r *EmailRepository) GetEmailsByIDs(userID int, emailIDs []int) ([]models.E
 	}
 
 	query := `
-		SELECT id, user_id, email_address, password, client_id, refresh_token, remark,
-		       last_operation_at, created_at, updated_at
+		SELECT ` + emailSelectColumns + `
 		FROM emails
 		WHERE user_id = ? AND id IN (` + strings.Join(placeholders, ",") + `)
 		ORDER BY id
@@ -494,19 +563,7 @@ func (r *EmailRepository) GetEmailsByIDs(userID int, emailIDs []int) ([]models.E
 	var emails []models.Email
 	for rows.Next() {
 		var email models.Email
-		err := rows.Scan(
-			&email.ID,
-			&email.UserID,
-			&email.EmailAddress,
-			&email.Password,
-			&email.ClientID,
-			&email.RefreshToken,
-			&email.Remark,
-			&email.LastOperationAt,
-			&email.CreatedAt,
-			&email.UpdatedAt,
-		)
-		if err != nil {
+		if err := scanEmail(rows, &email); err != nil {
 			return nil, err
 		}
 		emails = append(emails, email)
@@ -518,8 +575,7 @@ func (r *EmailRepository) GetEmailsByIDs(userID int, emailIDs []int) ([]models.E
 // GetAllEmailsByUserID 获取用户的所有邮箱（不分页，用于导出）
 func (r *EmailRepository) GetAllEmailsByUserID(userID int) ([]models.Email, error) {
 	query := `
-		SELECT id, user_id, email_address, password, client_id, refresh_token, remark,
-		       last_operation_at, created_at, updated_at
+		SELECT ` + emailSelectColumns + `
 		FROM emails
 		WHERE user_id = ?
 		ORDER BY created_at DESC
@@ -534,19 +590,7 @@ func (r *EmailRepository) GetAllEmailsByUserID(userID int) ([]models.Email, erro
 	var emails []models.Email
 	for rows.Next() {
 		var email models.Email
-		err := rows.Scan(
-			&email.ID,
-			&email.UserID,
-			&email.EmailAddress,
-			&email.Password,
-			&email.ClientID,
-			&email.RefreshToken,
-			&email.Remark,
-			&email.LastOperationAt,
-			&email.CreatedAt,
-			&email.UpdatedAt,
-		)
-		if err != nil {
+		if err := scanEmail(rows, &email); err != nil {
 			return nil, err
 		}
 		emails = append(emails, email)
@@ -559,18 +603,7 @@ func (r *EmailRepository) scanEmailRows(rows *sql.Rows) ([]models.Email, error) 
 	var emails []models.Email
 	for rows.Next() {
 		var email models.Email
-		if err := rows.Scan(
-			&email.ID,
-			&email.UserID,
-			&email.EmailAddress,
-			&email.Password,
-			&email.ClientID,
-			&email.RefreshToken,
-			&email.Remark,
-			&email.LastOperationAt,
-			&email.CreatedAt,
-			&email.UpdatedAt,
-		); err != nil {
+		if err := scanEmail(rows, &email); err != nil {
 			return nil, err
 		}
 

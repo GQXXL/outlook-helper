@@ -15,6 +15,8 @@ const (
 	OpEmailValidationFailed = "email_validation_failed"
 	OpBatchAddEmails        = "batch_add_emails"
 	OpBatchDeleteEmails     = "batch_delete_emails"
+	OpRefreshTokenUpdated   = "refresh_token_updated"
+	OpRefreshTokenFailed    = "refresh_token_failed"
 
 	// 邮件操作相关
 	OpGetLatestMail       = "get_latest_mail"
@@ -51,6 +53,8 @@ var OperationTypeNames = map[string]string{
 	OpEmailValidationFailed: "邮箱验证失败",
 	OpBatchAddEmails:        "批量添加邮箱",
 	OpBatchDeleteEmails:     "批量删除邮箱",
+	OpRefreshTokenUpdated:   "RefreshToken刷新成功",
+	OpRefreshTokenFailed:    "RefreshToken刷新失败",
 
 	// 邮件操作相关
 	OpGetLatestMail:       "获取最新邮件",

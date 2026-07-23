@@ -18,18 +18,27 @@ type User struct {
 
 // Email 邮箱模型
 type Email struct {
-	ID              int        `json:"id" db:"id"`
-	UserID          int        `json:"user_id" db:"user_id"`
-	EmailAddress    string     `json:"email_address" db:"email_address"`
-	Password        string     `json:"-" db:"password"`
-	ClientID        string     `json:"-" db:"client_id"`
-	RefreshToken    string     `json:"-" db:"refresh_token"`
-	Remark          string     `json:"remark" db:"remark"`
-	LastOperationAt *time.Time `json:"last_operation_at" db:"last_operation_at"`
-	CreatedAt       time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at" db:"updated_at"`
-	Tags            []Tag      `json:"tags,omitempty"`
+	ID                    int        `json:"id" db:"id"`
+	UserID                int        `json:"user_id" db:"user_id"`
+	EmailAddress          string     `json:"email_address" db:"email_address"`
+	Password              string     `json:"-" db:"password"`
+	ClientID              string     `json:"-" db:"client_id"`
+	RefreshToken          string     `json:"-" db:"refresh_token"`
+	Remark                string     `json:"remark" db:"remark"`
+	RefreshTokenUpdatedAt *time.Time `json:"refresh_token_updated_at,omitempty" db:"refresh_token_updated_at"`
+	RefreshTokenExpiresAt *time.Time `json:"refresh_token_expires_at,omitempty" db:"refresh_token_expires_at"`
+	RefreshTokenStatus    string     `json:"refresh_token_status" db:"refresh_token_status"`
+	LastOperationAt       *time.Time `json:"last_operation_at" db:"last_operation_at"`
+	CreatedAt             time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt             time.Time  `json:"updated_at" db:"updated_at"`
+	Tags                  []Tag      `json:"tags,omitempty"`
 }
+
+const (
+	RefreshTokenStatusUnknown       = "unknown"
+	RefreshTokenStatusValid         = "valid"
+	RefreshTokenStatusRefreshFailed = "refresh_failed"
+)
 
 // Tag 标记模型
 type Tag struct {

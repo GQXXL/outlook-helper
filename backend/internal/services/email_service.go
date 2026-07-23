@@ -4,11 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"outlook-helper/backend/internal/config"
 	"outlook-helper/backend/internal/database"
 	"outlook-helper/backend/internal/models"
 )
+
+const refreshTokenEstimatedValidity = 90 * 24 * time.Hour
 
 // EmailService 邮件服务
 type EmailService struct {
@@ -230,6 +233,37 @@ func (s *EmailService) GetEmailByID(userID, emailID int) (*models.Email, error) 
 	return email, nil
 }
 
+func (s *EmailService) refreshTokenForOperation(userID int, email *models.Email, ipAddress, userAgent string) error {
+	newRefreshToken, err := s.outlookService.RefreshToken(email)
+	if err != nil {
+		_ = s.emailRepo.UpdateRefreshTokenStatus(email.ID, models.RefreshTokenStatusRefreshFailed)
+		s.logRepo.LogEmail(userID, "refresh_token_failed", email.ID,
+			fmt.Sprintf("刷新RefreshToken失败，邮箱: %s，错误: %v", email.EmailAddress, err),
+			ipAddress, userAgent)
+		return fmt.Errorf("刷新RefreshToken失败: %w", err)
+	}
+
+	now := time.Now().UTC()
+	expiresAt := now.Add(refreshTokenEstimatedValidity)
+	if err := s.emailRepo.UpdateRefreshToken(email.ID, newRefreshToken, now, expiresAt, models.RefreshTokenStatusValid); err != nil {
+		s.logRepo.LogEmail(userID, "refresh_token_failed", email.ID,
+			fmt.Sprintf("保存刷新后的RefreshToken失败，邮箱: %s，错误: %v", email.EmailAddress, err),
+			ipAddress, userAgent)
+		return fmt.Errorf("保存刷新后的RefreshToken失败: %w", err)
+	}
+
+	email.RefreshToken = newRefreshToken
+	email.RefreshTokenUpdatedAt = &now
+	email.RefreshTokenExpiresAt = &expiresAt
+	email.RefreshTokenStatus = models.RefreshTokenStatusValid
+
+	s.logRepo.LogEmail(userID, "refresh_token_updated", email.ID,
+		fmt.Sprintf("RefreshToken刷新成功，邮箱: %s，预计到期: %s", email.EmailAddress, expiresAt.Format("2006-01-02 15:04:05")),
+		ipAddress, userAgent)
+
+	return nil
+}
+
 // UpdateEmail 更新邮箱
 func (s *EmailService) UpdateEmail(userID int, emailID int, req *models.AddEmailRequest, ipAddress, userAgent string) (*models.Email, error) {
 	// 获取现有邮箱
@@ -244,6 +278,9 @@ func (s *EmailService) UpdateEmail(userID int, emailID int, req *models.AddEmail
 	email.ClientID = req.ClientID
 	email.RefreshToken = req.RefreshToken
 	email.Remark = req.Remark
+	email.RefreshTokenUpdatedAt = nil
+	email.RefreshTokenExpiresAt = nil
+	email.RefreshTokenStatus = models.RefreshTokenStatusUnknown
 
 	// 验证新的凭据
 	if err := s.outlookService.ValidateEmailCredentials(email); err != nil {
@@ -319,6 +356,13 @@ func (s *EmailService) GetLatestMail(userID, emailID int, mailbox string, ipAddr
 		return nil, err
 	}
 
+	if err := s.refreshTokenForOperation(userID, email, ipAddress, userAgent); err != nil {
+		s.logRepo.LogEmail(userID, "get_latest_mail_failed", emailID,
+			fmt.Sprintf("获取最新邮件前刷新令牌失败: %v", err),
+			ipAddress, userAgent)
+		return nil, err
+	}
+
 	// 调用Outlook API
 	mail, err := s.outlookService.GetLatestMail(email, mailbox, "json")
 	if err != nil {
@@ -348,6 +392,13 @@ func (s *EmailService) GetAllMails(userID, emailID int, mailbox string, ipAddres
 		return nil, err
 	}
 
+	if err := s.refreshTokenForOperation(userID, email, ipAddress, userAgent); err != nil {
+		s.logRepo.LogEmail(userID, "get_all_mails_failed", emailID,
+			fmt.Sprintf("获取全部邮件前刷新令牌失败: %v", err),
+			ipAddress, userAgent)
+		return nil, err
+	}
+
 	// 调用Outlook API
 	mails, err := s.outlookService.GetAllMails(email, mailbox)
 	if err != nil {
@@ -374,6 +425,13 @@ func (s *EmailService) ClearInbox(userID, emailID int, ipAddress, userAgent stri
 	// 获取邮箱信息
 	email, err := s.GetEmailByID(userID, emailID)
 	if err != nil {
+		return err
+	}
+
+	if err := s.refreshTokenForOperation(userID, email, ipAddress, userAgent); err != nil {
+		s.logRepo.LogEmail(userID, "clear_inbox_failed", emailID,
+			fmt.Sprintf("清空收件箱前刷新令牌失败: %v", err),
+			ipAddress, userAgent)
 		return err
 	}
 
@@ -412,6 +470,14 @@ func (s *EmailService) BatchClearInbox(userID int, emailIDs []int, ipAddress, us
 		email, err := s.GetEmailByID(userID, emailID)
 		if err != nil {
 			errors = append(errors, fmt.Sprintf("邮箱ID %d: %v", emailID, err))
+			continue
+		}
+
+		if err := s.refreshTokenForOperation(userID, email, ipAddress, userAgent); err != nil {
+			s.logRepo.LogEmail(userID, "clear_inbox_failed", emailID,
+				fmt.Sprintf("批量清空收件箱前刷新令牌失败: %v", err),
+				ipAddress, userAgent)
+			errors = append(errors, fmt.Sprintf("邮箱 %s: %v", email.EmailAddress, err))
 			continue
 		}
 
@@ -575,4 +641,3 @@ func (s *EmailService) escapeCSV(field string) string {
 	}
 	return field
 }
-

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"outlook-helper/backend/internal/models"
@@ -20,7 +21,7 @@ type OutlookService struct {
 // NewOutlookService 创建Outlook服务
 func NewOutlookService(baseURL string) *OutlookService {
 	return &OutlookService{
-		baseURL: baseURL,
+		baseURL: strings.TrimRight(baseURL, "/"),
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -48,6 +49,69 @@ type MailData struct {
 	VerifyCode  string    `json:"verifyCode,omitempty"`
 }
 
+// RefreshTokenResponse 刷新令牌响应
+type RefreshTokenResponse struct {
+	RefreshToken string      `json:"refresh_token"`
+	Error        string      `json:"error,omitempty"`
+	Message      string      `json:"message,omitempty"`
+	Details      interface{} `json:"details,omitempty"`
+}
+
+// RefreshToken 使用当前RefreshToken换取新的RefreshToken
+func (s *OutlookService) RefreshToken(email *models.Email) (string, error) {
+	requestData := map[string]string{
+		"refresh_token": email.RefreshToken,
+		"client_id":     email.ClientID,
+	}
+	addOutlookAPIPassword(requestData, email)
+
+	jsonData, err := json.Marshal(requestData)
+	if err != nil {
+		return "", fmt.Errorf("序列化刷新令牌请求失败: %v", err)
+	}
+
+	requestURL := fmt.Sprintf("%s/api/refresh-token", s.baseURL)
+	req, err := http.NewRequest("POST", requestURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("创建刷新令牌请求失败: %v", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Connection", "keep-alive")
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("刷新令牌请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("读取刷新令牌响应失败: %v", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("刷新令牌API请求失败，状态码: %d, 响应: %s", resp.StatusCode, string(body))
+	}
+
+	var response RefreshTokenResponse
+	if err := json.Unmarshal(body, &response); err != nil {
+		return "", fmt.Errorf("解析刷新令牌响应失败: %v, 响应内容: %s", err, string(body))
+	}
+
+	if response.Error != "" {
+		return "", fmt.Errorf("刷新令牌API返回错误: %s", response.Error)
+	}
+
+	newRefreshToken := strings.TrimSpace(response.RefreshToken)
+	if newRefreshToken == "" {
+		return "", fmt.Errorf("刷新令牌API未返回refresh_token")
+	}
+
+	return newRefreshToken, nil
+}
+
 // GetLatestMail 获取最新邮件
 func (s *OutlookService) GetLatestMail(email *models.Email, mailbox string, responseType string) (*models.OutlookMail, error) {
 	// 构建请求体
@@ -57,6 +121,7 @@ func (s *OutlookService) GetLatestMail(email *models.Email, mailbox string, resp
 		"email":         email.EmailAddress,
 		"mailbox":       mailbox,
 	}
+	addOutlookAPIPassword(requestData, email)
 	if responseType != "" {
 		requestData["response_type"] = responseType
 	}
@@ -161,6 +226,7 @@ func (s *OutlookService) GetAllMails(email *models.Email, mailbox string) ([]mod
 		"email":         email.EmailAddress,
 		"mailbox":       mailbox,
 	}
+	addOutlookAPIPassword(requestData, email)
 
 	// 序列化请求体
 	jsonData, err := json.Marshal(requestData)
@@ -247,6 +313,7 @@ func (s *OutlookService) ClearInbox(email *models.Email) error {
 		"client_id":     email.ClientID,
 		"email":         email.EmailAddress,
 	}
+	addOutlookAPIPassword(requestData, email)
 
 	// 序列化请求体
 	jsonData, err := json.Marshal(requestData)
@@ -308,6 +375,7 @@ func (s *OutlookService) ClearJunk(email *models.Email) error {
 		"client_id":     email.ClientID,
 		"email":         email.EmailAddress,
 	}
+	addOutlookAPIPassword(requestData, email)
 
 	// 序列化请求体
 	jsonData, err := json.Marshal(requestData)
@@ -389,4 +457,10 @@ func getBoolFromMap(m map[string]interface{}, key string) bool {
 		}
 	}
 	return false
+}
+
+func addOutlookAPIPassword(requestData map[string]string, email *models.Email) {
+	if email.Password != "" {
+		requestData["password"] = email.Password
+	}
 }

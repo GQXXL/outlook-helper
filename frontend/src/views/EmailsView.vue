@@ -17,50 +17,46 @@
           </el-input>
           <div class="mailbox-switch">
             <span class="mailbox-label">邮箱位置</span>
-            <el-segmented
-              v-model="selectedMailbox"
-              :options="mailboxOptions"
-              size="default"
-            />
+            <el-segmented v-model="selectedMailbox" :options="mailboxOptions" size="default" />
           </div>
         </div>
         <div class="operation-right">
           <template v-if="authStore.isAdmin">
-          <el-button
-            type="danger"
-            :disabled="selectedEmails.length === 0 || operationLoading.batchClearInbox"
-            :loading="operationLoading.batchClearInbox"
-            @click="batchClearInbox"
-          >
-            <el-icon><Delete /></el-icon>
-            清空收件箱
-          </el-button>
-          <el-button
-            type="danger"
-            plain
-            :disabled="selectedEmails.length === 0 || operationLoading.batchDelete"
-            :loading="operationLoading.batchDelete"
-            @click="batchDelete"
-          >
-            <el-icon><Delete /></el-icon>
-            批量删除
-          </el-button>
-          <el-button type="primary" @click="showAddDialog = true">
-            <el-icon><Plus /></el-icon>
-            添加邮箱
-          </el-button>
-          <el-button @click="showBatchDialog = true">
-            <el-icon><Upload /></el-icon>
-            批量添加
-          </el-button>
-          <el-button @click="showImportDialog = true">
-            <el-icon><Document /></el-icon>
-            导入文件
-          </el-button>
-          <el-button @click="showExportDialog = true">
-            <el-icon><Download /></el-icon>
-            导出
-          </el-button>
+            <el-button
+              type="danger"
+              :disabled="selectedEmails.length === 0 || operationLoading.batchClearInbox"
+              :loading="operationLoading.batchClearInbox"
+              @click="batchClearInbox"
+            >
+              <el-icon><Delete /></el-icon>
+              清空收件箱
+            </el-button>
+            <el-button
+              type="danger"
+              plain
+              :disabled="selectedEmails.length === 0 || operationLoading.batchDelete"
+              :loading="operationLoading.batchDelete"
+              @click="batchDelete"
+            >
+              <el-icon><Delete /></el-icon>
+              批量删除
+            </el-button>
+            <el-button type="primary" @click="showAddDialog = true">
+              <el-icon><Plus /></el-icon>
+              添加邮箱
+            </el-button>
+            <el-button @click="showBatchDialog = true">
+              <el-icon><Upload /></el-icon>
+              批量添加
+            </el-button>
+            <el-button @click="showImportDialog = true">
+              <el-icon><Document /></el-icon>
+              导入文件
+            </el-button>
+            <el-button @click="showExportDialog = true">
+              <el-icon><Download /></el-icon>
+              导出
+            </el-button>
           </template>
           <el-button @click="loadEmails">
             <el-icon><Refresh /></el-icon>
@@ -116,8 +112,8 @@
               </el-tag>
             </div>
             <span v-else class="no-tags">-</span>
-            </template>
-          </el-table-column>
+          </template>
+        </el-table-column>
         <el-table-column prop="remark" label="备注" width="100">
           <template #default="{ row }">
             <el-tooltip
@@ -129,179 +125,206 @@
             </el-tooltip>
           </template>
         </el-table-column>
-          <el-table-column prop="created_at" label="添加时间" width="160">
-            <template #default="{ row }">
-              {{ formatTime(row.created_at) }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="last_operation_at" label="最后操作" width="160">
-            <template #default="{ row }">
-              {{ row.last_operation_at ? formatTime(row.last_operation_at) : '-' }}
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="150" fixed="right">
-            <template #default="{ row }">
-              <div class="operation-buttons">
-                <el-button
-                  link
-                  class="icon-button icon-button-primary"
-                  :loading="operationLoading.getLatestMail[row.id]"
-                  :disabled="operationLoading.getLatestMail[row.id]"
-                  @click="getLatestMail(row)"
-                >
-                  <el-icon :size="18"><Bell /></el-icon>
-                </el-button>
-
-                <el-button
-                  link
-                  class="icon-button icon-button-info"
-                  :loading="operationLoading.getAllMails[row.id]"
-                  :disabled="operationLoading.getAllMails[row.id]"
-                  @click="getAllMails(row)"
-                >
-                  <el-icon :size="18"><Grid /></el-icon>
-                </el-button>
-
-                <el-button
-                  v-if="authStore.isAdmin"
-                  link
-                  class="icon-button icon-button-danger"
-                  :loading="operationLoading.deleteEmail[row.id]"
-                  :disabled="operationLoading.deleteEmail[row.id]"
-                  @click="deleteEmail(row)"
-                >
-                  <el-icon :size="18"><Close /></el-icon>
-                </el-button>
-              </div>
-            </template>
-          </el-table-column>
-        </el-table>
-
-        <div class="mobile-email-list" v-loading="loading">
-          <el-empty v-if="!loading && emails.length === 0" description="暂无邮箱" />
-
-          <article
-            v-for="email in emails"
-            :key="email.id"
-            class="mobile-email-card"
-            :class="{ selected: isEmailSelected(email) }"
-          >
-            <div class="mobile-card-header">
-              <el-checkbox
-                v-if="authStore.isAdmin"
-                :model-value="isEmailSelected(email)"
-                @change="handleMobileSelectionChange(email, $event)"
-              />
-
-              <div class="mobile-email-main">
-                <button
-                  type="button"
-                  class="mobile-email-address"
-                  :title="authStore.isAdmin ? '点击标记邮箱' : '邮箱地址'"
-                  @click="handleEmailClick(email)"
-                >
-                  {{ email.email_address }}
-                </button>
-                <div class="mobile-email-subtitle">
-                  {{ email.remark || '无备注' }}
-                </div>
-              </div>
-
-              <el-button
+        <el-table-column label="令牌" width="160">
+          <template #default="{ row }">
+            <div class="token-status-cell">
+              <el-tag
+                :type="getTokenStatusType(row.refresh_token_status)"
                 size="small"
-                circle
-                class="mobile-copy-button"
-                @click.stop="copyEmailAddress(email.email_address)"
-                title="复制邮箱地址"
+                effect="light"
               >
-                <el-icon><CopyDocument /></el-icon>
-              </el-button>
+                {{ getTokenStatusText(row.refresh_token_status) }}
+              </el-tag>
+              <span class="token-expiry-text">
+                {{ formatTokenExpiry(row.refresh_token_expires_at) }}
+              </span>
             </div>
-
-            <div class="mobile-tags-row">
-              <template v-if="email.tags && email.tags.length > 0">
-                <el-tag
-                  v-for="tag in email.tags"
-                  :key="tag.id"
-                  :color="tag.color"
-                  size="small"
-                  class="tag-item"
-                >
-                  {{ tag.name }}
-                </el-tag>
-              </template>
-              <span v-else class="mobile-empty-tags">暂无标签</span>
-            </div>
-
-            <div class="mobile-card-meta">
-              <div>
-                <span>添加时间</span>
-                <strong>{{ formatTime(email.created_at) }}</strong>
-              </div>
-              <div>
-                <span>最后操作</span>
-                <strong>{{ email.last_operation_at ? formatTime(email.last_operation_at) : '-' }}</strong>
-              </div>
-            </div>
-
-            <div class="mobile-card-actions">
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="添加时间" width="160">
+          <template #default="{ row }">
+            {{ formatTime(row.created_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="last_operation_at" label="最后操作" width="160">
+          <template #default="{ row }">
+            {{ row.last_operation_at ? formatTime(row.last_operation_at) : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="150" fixed="right">
+          <template #default="{ row }">
+            <div class="operation-buttons">
               <el-button
-                type="primary"
-                plain
-                :loading="operationLoading.getLatestMail[email.id]"
-                :disabled="operationLoading.getLatestMail[email.id]"
-                @click="getLatestMail(email)"
+                link
+                class="icon-button icon-button-primary"
+                :loading="operationLoading.getLatestMail[row.id]"
+                :disabled="operationLoading.getLatestMail[row.id]"
+                @click="getLatestMail(row)"
               >
-                <el-icon><Bell /></el-icon>
-                最新邮件
+                <el-icon :size="18"><Bell /></el-icon>
               </el-button>
 
               <el-button
-                plain
-                :loading="operationLoading.getAllMails[email.id]"
-                :disabled="operationLoading.getAllMails[email.id]"
-                @click="getAllMails(email)"
+                link
+                class="icon-button icon-button-info"
+                :loading="operationLoading.getAllMails[row.id]"
+                :disabled="operationLoading.getAllMails[row.id]"
+                @click="getAllMails(row)"
               >
-                <el-icon><Grid /></el-icon>
-                全部邮件
+                <el-icon :size="18"><Grid /></el-icon>
               </el-button>
 
               <el-button
                 v-if="authStore.isAdmin"
-                type="danger"
-                plain
-                :loading="operationLoading.deleteEmail[email.id]"
-                :disabled="operationLoading.deleteEmail[email.id]"
-                @click="deleteEmail(email)"
+                link
+                class="icon-button icon-button-danger"
+                :loading="operationLoading.deleteEmail[row.id]"
+                :disabled="operationLoading.deleteEmail[row.id]"
+                @click="deleteEmail(row)"
               >
-                <el-icon><Close /></el-icon>
-                删除
+                <el-icon :size="18"><Close /></el-icon>
               </el-button>
             </div>
-          </article>
-        </div>
+          </template>
+        </el-table-column>
+      </el-table>
 
-        <!-- 分页 -->
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
-          :page-sizes="[10, 20, 50, 100]"
-          :total="total"
-          layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
-        />
-      </el-card>
+      <div class="mobile-email-list" v-loading="loading">
+        <el-empty v-if="!loading && emails.length === 0" description="暂无邮箱" />
 
+        <article
+          v-for="email in emails"
+          :key="email.id"
+          class="mobile-email-card"
+          :class="{ selected: isEmailSelected(email) }"
+        >
+          <div class="mobile-card-header">
+            <el-checkbox
+              v-if="authStore.isAdmin"
+              :model-value="isEmailSelected(email)"
+              @change="handleMobileSelectionChange(email, $event)"
+            />
 
+            <div class="mobile-email-main">
+              <button
+                type="button"
+                class="mobile-email-address"
+                :title="authStore.isAdmin ? '点击标记邮箱' : '邮箱地址'"
+                @click="handleEmailClick(email)"
+              >
+                {{ email.email_address }}
+              </button>
+              <div class="mobile-email-subtitle">
+                {{ email.remark || '无备注' }}
+              </div>
+            </div>
 
+            <el-button
+              size="small"
+              circle
+              class="mobile-copy-button"
+              @click.stop="copyEmailAddress(email.email_address)"
+              title="复制邮箱地址"
+            >
+              <el-icon><CopyDocument /></el-icon>
+            </el-button>
+          </div>
+
+          <div class="mobile-tags-row">
+            <template v-if="email.tags && email.tags.length > 0">
+              <el-tag
+                v-for="tag in email.tags"
+                :key="tag.id"
+                :color="tag.color"
+                size="small"
+                class="tag-item"
+              >
+                {{ tag.name }}
+              </el-tag>
+            </template>
+            <span v-else class="mobile-empty-tags">暂无标签</span>
+          </div>
+
+          <div class="mobile-card-meta">
+            <div>
+              <span>添加时间</span>
+              <strong>{{ formatTime(email.created_at) }}</strong>
+            </div>
+            <div>
+              <span>最后操作</span>
+              <strong>{{
+                email.last_operation_at ? formatTime(email.last_operation_at) : '-'
+              }}</strong>
+            </div>
+            <div>
+              <span>令牌状态</span>
+              <strong>
+                <el-tag
+                  :type="getTokenStatusType(email.refresh_token_status)"
+                  size="small"
+                  effect="light"
+                >
+                  {{ getTokenStatusText(email.refresh_token_status) }}
+                </el-tag>
+              </strong>
+            </div>
+            <div>
+              <span>预计到期</span>
+              <strong>{{ formatTokenExpiry(email.refresh_token_expires_at) }}</strong>
+            </div>
+          </div>
+
+          <div class="mobile-card-actions">
+            <el-button
+              type="primary"
+              plain
+              :loading="operationLoading.getLatestMail[email.id]"
+              :disabled="operationLoading.getLatestMail[email.id]"
+              @click="getLatestMail(email)"
+            >
+              <el-icon><Bell /></el-icon>
+              最新邮件
+            </el-button>
+
+            <el-button
+              plain
+              :loading="operationLoading.getAllMails[email.id]"
+              :disabled="operationLoading.getAllMails[email.id]"
+              @click="getAllMails(email)"
+            >
+              <el-icon><Grid /></el-icon>
+              全部邮件
+            </el-button>
+
+            <el-button
+              v-if="authStore.isAdmin"
+              type="danger"
+              plain
+              :loading="operationLoading.deleteEmail[email.id]"
+              :disabled="operationLoading.deleteEmail[email.id]"
+              @click="deleteEmail(email)"
+            >
+              <el-icon><Close /></el-icon>
+              删除
+            </el-button>
+          </div>
+        </article>
+      </div>
+
+      <!-- 分页 -->
+      <el-pagination
+        v-model:current-page="currentPage"
+        v-model:page-size="pageSize"
+        :page-sizes="[10, 20, 50, 100]"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @size-change="handleSizeChange"
+        @current-change="handleCurrentChange"
+      />
+    </el-card>
 
     <!-- 添加邮箱对话框 -->
-    <AddEmailDialog
-      v-if="authStore.isAdmin"
-      v-model="showAddDialog"
-      @success="handleAddSuccess"
-    />
+    <AddEmailDialog v-if="authStore.isAdmin" v-model="showAddDialog" @success="handleAddSuccess" />
 
     <!-- 批量添加对话框 -->
     <BatchAddDialog
@@ -314,7 +337,7 @@
     <BatchTagDialog
       v-if="authStore.isAdmin"
       v-model="showBatchTagDialog"
-      :email-ids="selectedEmails.map(e => e.id)"
+      :email-ids="selectedEmails.map((e) => e.id)"
       @success="handleBatchTagSuccess"
     />
 
@@ -337,7 +360,7 @@
       v-if="authStore.isAdmin"
       v-model="showExportDialog"
       :selected-count="selectedEmails.length"
-      :selected-email-ids="selectedEmails.map(e => e.id)"
+      :selected-email-ids="selectedEmails.map((e) => e.id)"
       @export="handleExport"
     />
   </div>
@@ -365,7 +388,7 @@ import {
   Bell,
   Grid,
   Close,
-  Download
+  Download,
 } from '@element-plus/icons-vue'
 import AddEmailDialog from '@/components/AddEmailDialog.vue'
 import BatchAddDialog from '@/components/BatchAddDialog.vue'
@@ -388,7 +411,7 @@ const total = ref(0)
 const selectedMailbox = ref<'INBOX' | 'Junk'>('INBOX')
 const mailboxOptions = [
   { label: '收件箱', value: 'INBOX' },
-  { label: '垃圾邮件', value: 'Junk' }
+  { label: '垃圾邮件', value: 'Junk' },
 ]
 
 // 操作loading状态
@@ -397,7 +420,7 @@ const operationLoading = ref({
   getAllMails: {} as Record<number, boolean>,
   deleteEmail: {} as Record<number, boolean>,
   batchClearInbox: false,
-  batchDelete: false
+  batchDelete: false,
 })
 
 // 对话框状态
@@ -416,7 +439,7 @@ const pageLoadingText = ref('加载中...')
 const currentMail = ref<OutlookMail | null>(null)
 const currentMailList = ref<OutlookMail[]>([])
 
-const mailboxName = () => selectedMailbox.value === 'Junk' ? '垃圾邮件' : '收件箱'
+const mailboxName = () => (selectedMailbox.value === 'Junk' ? '垃圾邮件' : '收件箱')
 
 // 方法
 const loadEmails = async () => {
@@ -425,9 +448,9 @@ const loadEmails = async () => {
     const params = {
       limit: pageSize.value,
       offset: (currentPage.value - 1) * pageSize.value,
-      keyword: searchKeyword.value || undefined
+      keyword: searchKeyword.value || undefined,
     }
-    
+
     const response = await emailAPI.getEmails(params)
     if (response.data.success) {
       const data = response.data.data as any
@@ -453,7 +476,7 @@ const handleSelectionChange = (selection: Email[]) => {
 }
 
 const isEmailSelected = (email: Email) => {
-  return selectedEmails.value.some(item => item.id === email.id)
+  return selectedEmails.value.some((item) => item.id === email.id)
 }
 
 const toggleEmailSelection = (email: Email, checked: boolean) => {
@@ -464,7 +487,7 @@ const toggleEmailSelection = (email: Email, checked: boolean) => {
     return
   }
 
-  selectedEmails.value = selectedEmails.value.filter(item => item.id !== email.id)
+  selectedEmails.value = selectedEmails.value.filter((item) => item.id !== email.id)
 }
 
 const handleMobileSelectionChange = (email: Email, checked: string | number | boolean) => {
@@ -492,7 +515,7 @@ const handleExport = async (params: any) => {
       range: params.range,
       format: params.format,
       field_order: params.fieldOrder,
-      email_ids: params.emailIds
+      email_ids: params.emailIds,
     }
 
     const response = await emailAPI.exportEmails(exportParams)
@@ -501,7 +524,7 @@ const handleExport = async (params: any) => {
     if (response.data.success && exportData) {
       // 创建下载链接
       const blob = new Blob([exportData.content], {
-        type: params.format === 'csv' ? 'text/csv' : 'text/plain'
+        type: params.format === 'csv' ? 'text/csv' : 'text/plain',
       })
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -553,12 +576,15 @@ const getLatestMail = async (email: Email) => {
       currentMail.value = response.data.data
       currentMailList.value = [response.data.data]
       showMailDialog.value = true
+      void loadEmails()
     } else {
       // 检查是否是"Nothing to fetch"错误
       if (response.data.error && response.data.error.includes('Nothing to fetch')) {
         ElMessage.info('当前邮箱暂无邮件')
+        void loadEmails()
       } else {
-        ElMessage.error(response.data.message || '获取邮件失败')
+        ElMessage.error(response.data.error || response.data.message || '获取邮件失败')
+        void loadEmails()
       }
     }
   } catch (error: any) {
@@ -566,8 +592,10 @@ const getLatestMail = async (email: Email) => {
     const errorMessage = error.response?.data?.error || error.response?.data?.message || ''
     if (errorMessage.includes('Nothing to fetch')) {
       ElMessage.info('当前邮箱暂无邮件')
+      void loadEmails()
     } else {
-      ElMessage.error(error.response?.data?.message || '获取邮件失败')
+      ElMessage.error(errorMessage || '获取邮件失败')
+      void loadEmails()
     }
   } finally {
     operationLoading.value.getLatestMail[email.id] = false
@@ -585,12 +613,15 @@ const getAllMails = async (email: Email) => {
       currentMailList.value = response.data.data
       currentMail.value = response.data.data[0] || null
       showMailDialog.value = true
+      void loadEmails()
     } else {
       // 检查是否是"Nothing to fetch"错误
       if (response.data.error && response.data.error.includes('Nothing to fetch')) {
         ElMessage.info('当前邮箱暂无邮件')
+        void loadEmails()
       } else {
-        ElMessage.error(response.data.message || '获取邮件失败')
+        ElMessage.error(response.data.error || response.data.message || '获取邮件失败')
+        void loadEmails()
       }
     }
   } catch (error: any) {
@@ -598,8 +629,10 @@ const getAllMails = async (email: Email) => {
     const errorMessage = error.response?.data?.error || error.response?.data?.message || ''
     if (errorMessage.includes('Nothing to fetch')) {
       ElMessage.info('当前邮箱暂无邮件')
+      void loadEmails()
     } else {
-      ElMessage.error(error.response?.data?.message || '获取邮件失败')
+      ElMessage.error(errorMessage || '获取邮件失败')
+      void loadEmails()
     }
   } finally {
     operationLoading.value.getAllMails[email.id] = false
@@ -615,20 +648,22 @@ const clearInbox = async (email: Email) => {
       {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
-        type: 'warning'
-      }
+        type: 'warning',
+      },
     )
-    
+
     const response = await emailAPI.clearInbox(email.id)
     if (response.data.success) {
       ElMessage.success('收件箱清空成功')
       loadEmails()
     } else {
-      ElMessage.error(response.data.message || '清空收件箱失败')
+      ElMessage.error(response.data.error || response.data.message || '清空收件箱失败')
     }
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error.response?.data?.message || '清空收件箱失败')
+      ElMessage.error(
+        error.response?.data?.error || error.response?.data?.message || '清空收件箱失败',
+      )
     }
   }
 }
@@ -646,18 +681,20 @@ const batchClearInbox = async () => {
       {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
-        type: 'warning'
-      }
+        type: 'warning',
+      },
     )
 
     operationLoading.value.batchClearInbox = true
-    const emailIds = selectedEmails.value.map(email => email.id)
+    const emailIds = selectedEmails.value.map((email) => email.id)
     const response = await emailAPI.batchClearInbox(emailIds)
 
     if (response.data.success) {
       const data = response.data.data as any
       if (data.error_count > 0) {
-        ElMessage.warning(`批量清空收件箱完成，成功: ${data.success_count}, 失败: ${data.error_count}`)
+        ElMessage.warning(
+          `批量清空收件箱完成，成功: ${data.success_count}, 失败: ${data.error_count}`,
+        )
       } else {
         ElMessage.success(`成功清空 ${data.success_count} 个邮箱的收件箱`)
       }
@@ -686,15 +723,11 @@ const handleDropdownCommand = (command: string, email: Email) => {
 
 const deleteEmail = async (email: Email) => {
   try {
-    await ElMessageBox.confirm(
-      `确定要删除邮箱 ${email.email_address} 吗？`,
-      '确认删除',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      }
-    )
+    await ElMessageBox.confirm(`确定要删除邮箱 ${email.email_address} 吗？`, '确认删除', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
 
     operationLoading.value.deleteEmail[email.id] = true
     pageLoading.value = true
@@ -724,13 +757,13 @@ const batchDelete = async () => {
       {
         confirmButtonText: '确定',
         cancelButtonText: '取消',
-        type: 'warning'
-      }
+        type: 'warning',
+      },
     )
 
     operationLoading.value.batchDelete = true
     // 批量删除
-    const emailIds = selectedEmails.value.map(email => email.id)
+    const emailIds = selectedEmails.value.map((email) => email.id)
     await emailAPI.batchDeleteEmails(emailIds)
 
     ElMessage.success('批量删除成功')
@@ -770,6 +803,45 @@ const handleEmailClick = (email: Email) => {
 
 const formatTime = (timeStr: string): string => {
   return new Date(timeStr).toLocaleString('zh-CN')
+}
+
+type TokenStatus = Email['refresh_token_status'] | undefined | null
+
+const getTokenStatusText = (status: TokenStatus): string => {
+  switch (status) {
+    case 'valid':
+      return '有效'
+    case 'refresh_failed':
+      return '刷新失败'
+    case 'unknown':
+    default:
+      return '未刷新'
+  }
+}
+
+const getTokenStatusType = (status: TokenStatus): 'success' | 'danger' | 'info' => {
+  switch (status) {
+    case 'valid':
+      return 'success'
+    case 'refresh_failed':
+      return 'danger'
+    case 'unknown':
+    default:
+      return 'info'
+  }
+}
+
+const formatTokenExpiry = (timeStr?: string | null): string => {
+  if (!timeStr) {
+    return '未记录'
+  }
+
+  const date = new Date(timeStr)
+  if (Number.isNaN(date.getTime())) {
+    return '未记录'
+  }
+
+  return date.toLocaleString('zh-CN')
 }
 
 onMounted(() => {
@@ -876,8 +948,6 @@ onMounted(() => {
 .no-tags {
   color: #999;
 }
-
-
 
 :deep(.el-table .cell) {
   padding: 4px 8px;
@@ -1069,13 +1139,34 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.token-status-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.token-expiry-text {
+  max-width: 100%;
+  color: #718096;
+  font-size: 12px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .mobile-email-card {
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   background: #ffffff;
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
   padding: 14px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    transform 0.2s ease;
 }
 
 .mobile-email-card.selected {

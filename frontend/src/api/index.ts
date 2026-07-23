@@ -9,8 +9,8 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
   headers: {
-    'Content-Type': 'application/json'
-  }
+    'Content-Type': 'application/json',
+  },
 })
 
 // 请求拦截器
@@ -25,7 +25,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error)
-  }
+  },
 )
 
 // 响应拦截器
@@ -46,7 +46,7 @@ api.interceptors.response.use(
       // 在登录页面时，让错误继续传递，以便显示错误消息
     }
     return Promise.reject(error)
-  }
+  },
 )
 
 // API响应类型
@@ -84,6 +84,9 @@ export interface Email {
   user_id: number
   email_address: string
   remark: string
+  refresh_token_updated_at?: string
+  refresh_token_expires_at?: string
+  refresh_token_status: 'unknown' | 'valid' | 'refresh_failed'
   last_operation_at?: string
   created_at: string
   updated_at: string
@@ -213,40 +216,41 @@ export const authAPI = {
   // 登录
   login: (data: LoginRequest): Promise<AxiosResponse<APIResponse<LoginResponse>>> =>
     api.post('/auth/login', data),
-  
+
   // 登出
-  logout: (): Promise<AxiosResponse<APIResponse>> =>
-    api.post('/auth/logout')
+  logout: (): Promise<AxiosResponse<APIResponse>> => api.post('/auth/logout'),
 }
 
 // 邮箱API
 export const emailAPI = {
   // 获取邮箱列表
-  getEmails: (params?: { limit?: number; offset?: number; keyword?: string }): Promise<AxiosResponse<APIResponse<Email[]>>> =>
-    api.get('/emails', { params }),
-  
+  getEmails: (params?: {
+    limit?: number
+    offset?: number
+    keyword?: string
+  }): Promise<AxiosResponse<APIResponse<Email[]>>> => api.get('/emails', { params }),
+
   // 添加邮箱
   addEmail: (data: AddEmailRequest): Promise<AxiosResponse<APIResponse<Email>>> =>
     api.post('/emails', data),
-  
+
   // 批量添加邮箱
   batchAddEmails: (data: BatchAddEmailRequest): Promise<AxiosResponse<APIResponse>> =>
     api.post('/emails/batch', data),
-  
+
   // 导入邮箱
   importEmails: (file: File): Promise<AxiosResponse<APIResponse>> => {
     const formData = new FormData()
     formData.append('file', file)
     return api.post('/emails/import', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+        'Content-Type': 'multipart/form-data',
+      },
     })
   },
-  
+
   // 删除邮箱
-  deleteEmail: (id: number): Promise<AxiosResponse<APIResponse>> =>
-    api.delete(`/emails/${id}`),
+  deleteEmail: (id: number): Promise<AxiosResponse<APIResponse>> => api.delete(`/emails/${id}`),
 
   // 批量删除邮箱
   batchDeleteEmails: (emailIds: number[]): Promise<AxiosResponse<APIResponse>> =>
@@ -259,95 +263,100 @@ export const emailAPI = {
   // 标记邮箱
   tagEmail: (id: number, data: TagEmailRequest): Promise<AxiosResponse<APIResponse>> =>
     api.put(`/emails/${id}/tags`, data),
-  
+
   // 获取最新邮件
   getLatestMail: (id: number, mailbox?: string): Promise<AxiosResponse<APIResponse<OutlookMail>>> =>
     api.get(`/emails/${id}/latest`, { params: { mailbox } }),
-  
+
   // 获取全部邮件
   getAllMails: (id: number, mailbox?: string): Promise<AxiosResponse<APIResponse<OutlookMail[]>>> =>
     api.get(`/emails/${id}/all`, { params: { mailbox } }),
-  
+
   // 清空收件箱
   clearInbox: (id: number): Promise<AxiosResponse<APIResponse>> =>
     api.delete(`/emails/${id}/inbox`),
 
   // 导出邮箱
-  exportEmails: (data: ExportEmailRequest): Promise<AxiosResponse<APIResponse<ExportEmailResponse>>> =>
-    api.post('/emails/export', data)
+  exportEmails: (
+    data: ExportEmailRequest,
+  ): Promise<AxiosResponse<APIResponse<ExportEmailResponse>>> => api.post('/emails/export', data),
 }
 
 // 标记API
 export const tagAPI = {
   // 获取标记列表
-  getTags: (): Promise<AxiosResponse<APIResponse<Tag[]>>> =>
-    api.get('/tags'),
-  
+  getTags: (): Promise<AxiosResponse<APIResponse<Tag[]>>> => api.get('/tags'),
+
   // 创建标记
   createTag: (data: CreateTagRequest): Promise<AxiosResponse<APIResponse<Tag>>> =>
     api.post('/tags', data),
-  
+
   // 更新标记
   updateTag: (id: number, data: UpdateTagRequest): Promise<AxiosResponse<APIResponse<Tag>>> =>
     api.put(`/tags/${id}`, data),
-  
+
   // 删除标记
-  deleteTag: (id: number): Promise<AxiosResponse<APIResponse>> =>
-    api.delete(`/tags/${id}`),
-  
+  deleteTag: (id: number): Promise<AxiosResponse<APIResponse>> => api.delete(`/tags/${id}`),
+
   // 批量标记邮箱
   batchTagEmails: (data: TagEmailRequest): Promise<AxiosResponse<APIResponse>> =>
     api.post('/tags/batch-tag', data),
-  
+
   // 批量取消标记邮箱
   batchUntagEmails: (data: TagEmailRequest): Promise<AxiosResponse<APIResponse>> =>
-    api.post('/tags/batch-untag', data)
+    api.post('/tags/batch-untag', data),
 }
 
 // 仪表盘API
 export const dashboardAPI = {
   // 获取仪表盘数据
-  getDashboard: (): Promise<AxiosResponse<APIResponse<DashboardStats>>> =>
-    api.get('/dashboard'),
+  getDashboard: (): Promise<AxiosResponse<APIResponse<DashboardStats>>> => api.get('/dashboard'),
 
   // 获取详细统计
   getStats: (type?: string): Promise<AxiosResponse<APIResponse>> =>
-    api.get('/dashboard/stats', { params: { type } })
+    api.get('/dashboard/stats', { params: { type } }),
 }
 
 // 操作日志API
 export const logsAPI = {
   // 获取操作日志（分页）
-  getLogs: (page: number = 1, pageSize: number = 5): Promise<AxiosResponse<APIResponse<{
-    logs: OperationLog[]
-    total: number
-    page: number
-    page_size: number
-    total_pages: number
-  }>>> =>
-    api.get('/logs', { params: { page, page_size: pageSize } }),
+  getLogs: (
+    page: number = 1,
+    pageSize: number = 5,
+  ): Promise<
+    AxiosResponse<
+      APIResponse<{
+        logs: OperationLog[]
+        total: number
+        page: number
+        page_size: number
+        total_pages: number
+      }>
+    >
+  > => api.get('/logs', { params: { page, page_size: pageSize } }),
 
   // 清空所有操作日志
-  clearLogs: (): Promise<AxiosResponse<APIResponse>> =>
-    api.delete('/logs')
+  clearLogs: (): Promise<AxiosResponse<APIResponse>> => api.delete('/logs'),
 }
 
 // 授权码API
 export const accessCodeAPI = {
-  getAccessCodes: (): Promise<AxiosResponse<APIResponse<AccessCode[]>>> =>
-    api.get('/access-codes'),
+  getAccessCodes: (): Promise<AxiosResponse<APIResponse<AccessCode[]>>> => api.get('/access-codes'),
 
-  createAccessCode: (data: CreateAccessCodeRequest): Promise<AxiosResponse<APIResponse<AccessCode>>> =>
-    api.post('/access-codes', data),
+  createAccessCode: (
+    data: CreateAccessCodeRequest,
+  ): Promise<AxiosResponse<APIResponse<AccessCode>>> => api.post('/access-codes', data),
 
-  updateAccessCode: (id: number, data: UpdateAccessCodeRequest): Promise<AxiosResponse<APIResponse<AccessCode>>> =>
-    api.put(`/access-codes/${id}`, data),
+  updateAccessCode: (
+    id: number,
+    data: UpdateAccessCodeRequest,
+  ): Promise<AxiosResponse<APIResponse<AccessCode>>> => api.put(`/access-codes/${id}`, data),
 
   deleteAccessCode: (id: number): Promise<AxiosResponse<APIResponse>> =>
     api.delete(`/access-codes/${id}`),
 
   rotateAccessCode: (id: number): Promise<AxiosResponse<APIResponse<AccessCode>>> =>
-    api.post(`/access-codes/${id}/rotate`)
+    api.post(`/access-codes/${id}/rotate`),
 }
 
 export default api

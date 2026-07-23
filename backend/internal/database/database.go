@@ -134,6 +134,9 @@ func createEmailsTable(db *sql.DB) error {
 		password VARCHAR(255) NOT NULL,
 		client_id VARCHAR(255) NOT NULL,
 		refresh_token TEXT NOT NULL,
+		refresh_token_updated_at DATETIME,
+		refresh_token_expires_at DATETIME,
+		refresh_token_status VARCHAR(32) NOT NULL DEFAULT 'unknown',
 		remark TEXT,
 		last_operation_at DATETIME,
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -141,8 +144,67 @@ func createEmailsTable(db *sql.DB) error {
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
 		UNIQUE(email_address, user_id)
 	)`
-	_, err := db.Exec(query)
-	return err
+	if _, err := db.Exec(query); err != nil {
+		return err
+	}
+
+	return ensureEmailsTableColumns(db)
+}
+
+func ensureEmailsTableColumns(db *sql.DB) error {
+	columns, err := getTableColumns(db, "emails")
+	if err != nil {
+		return err
+	}
+
+	missingColumns := []struct {
+		name       string
+		definition string
+	}{
+		{"refresh_token_updated_at", "refresh_token_updated_at DATETIME"},
+		{"refresh_token_expires_at", "refresh_token_expires_at DATETIME"},
+		{"refresh_token_status", "refresh_token_status VARCHAR(32) NOT NULL DEFAULT 'unknown'"},
+	}
+
+	for _, column := range missingColumns {
+		if columns[column.name] {
+			continue
+		}
+
+		if _, err := db.Exec("ALTER TABLE emails ADD COLUMN " + column.definition); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func getTableColumns(db *sql.DB, tableName string) (map[string]bool, error) {
+	rows, err := db.Query("PRAGMA table_info(" + tableName + ")")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	columns := make(map[string]bool)
+	for rows.Next() {
+		var (
+			cid          int
+			name         string
+			columnType   string
+			notNull      int
+			defaultValue sql.NullString
+			primaryKey   int
+		)
+
+		if err := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); err != nil {
+			return nil, err
+		}
+
+		columns[name] = true
+	}
+
+	return columns, rows.Err()
 }
 
 // createTagsTable 创建标记表
