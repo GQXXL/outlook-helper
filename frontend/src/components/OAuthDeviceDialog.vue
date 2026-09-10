@@ -82,7 +82,7 @@ import {
   type OAuthDeviceCodeResponse,
 } from '@/api'
 
-const DEFAULT_CLIENT_ID = 'd3590ed6-52b3-4102-aeff-aad2292ab01c'
+const DEFAULT_CLIENT_ID = '9e5f94bc-e8a4-4e73-b8be-63364c29d753'
 
 interface Props {
   modelValue: boolean
