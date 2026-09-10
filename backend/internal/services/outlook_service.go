@@ -22,7 +22,7 @@ type OutlookService struct {
 
 const (
 	microsoftConsumersOAuthBaseURL = "https://login.microsoftonline.com/consumers/oauth2/v2.0"
-	defaultDeviceCodeScope         = "offline_access https://outlook.office.com/IMAP.AccessAsUser.All"
+	defaultDeviceCodeScope         = "offline_access https://graph.microsoft.com/Mail.Read"
 )
 
 // NewOutlookService 创建Outlook服务
