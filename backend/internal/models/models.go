@@ -22,7 +22,7 @@ type Email struct {
 	UserID                int        `json:"user_id" db:"user_id"`
 	EmailAddress          string     `json:"email_address" db:"email_address"`
 	Password              string     `json:"-" db:"password"`
-	ClientID              string     `json:"-" db:"client_id"`
+	ClientID              string     `json:"client_id,omitempty" db:"client_id"`
 	RefreshToken          string     `json:"-" db:"refresh_token"`
 	Remark                string     `json:"remark" db:"remark"`
 	RefreshTokenUpdatedAt *time.Time `json:"refresh_token_updated_at,omitempty" db:"refresh_token_updated_at"`
@@ -175,6 +175,12 @@ type OAuthDeviceTokenResponse struct {
 	Scope                string `json:"scope,omitempty"`
 	Error                string `json:"error,omitempty"`
 	ErrorDescription     string `json:"error_description,omitempty"`
+}
+
+// UpdateEmailOAuthRequest 重新授权邮箱请求
+type UpdateEmailOAuthRequest struct {
+	ClientID     string `json:"client_id" binding:"required"`
+	RefreshToken string `json:"refresh_token" binding:"required"`
 }
 
 // CreateTagRequest 创建标记请求

@@ -150,7 +150,7 @@ docker run -d \
 
 ### custom分支二开部署
 
-`custom` 分支支持管理员创建用户授权码，并把授权码绑定到指定邮箱。管理员使用 `AUTH_TOKEN` 登录后可以查看和管理全部邮箱；用户使用管理员分配的授权码登录后，只能查看绑定邮箱并取件。管理员还可以在邮箱管理中使用“授权添加”，通过 Microsoft 设备授权首次获取 Outlook RefreshToken 并添加邮箱。
+`custom` 分支支持管理员创建用户授权码，并把授权码绑定到指定邮箱。管理员使用 `AUTH_TOKEN` 登录后可以查看和管理全部邮箱；用户使用管理员分配的授权码登录后，只能查看绑定邮箱并取件。管理员还可以在邮箱管理中使用“授权添加”，通过 Microsoft 设备授权首次获取 Outlook RefreshToken 并添加邮箱；如果已有邮箱令牌过期，可以在邮箱行内使用“重新授权”覆盖新的 RefreshToken。
 
 ```bash
 git clone -b custom https://github.com/GQXXL/outlook-helper.git /opt/outlook-helper

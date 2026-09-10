@@ -45,7 +45,7 @@
               <el-icon><Plus /></el-icon>
               添加邮箱
             </el-button>
-            <el-button type="success" plain @click="showOAuthDialog = true">
+            <el-button type="success" plain @click="openOAuthDialog()">
               <el-icon><Key /></el-icon>
               授权添加
             </el-button>
@@ -155,7 +155,7 @@
             {{ row.last_operation_at ? formatTime(row.last_operation_at) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="190" fixed="right">
           <template #default="{ row }">
             <div class="operation-buttons">
               <el-button
@@ -176,6 +176,16 @@
                 @click="getAllMails(row)"
               >
                 <el-icon :size="18"><Grid /></el-icon>
+              </el-button>
+
+              <el-button
+                v-if="authStore.isAdmin"
+                link
+                class="icon-button icon-button-warning"
+                @click="openOAuthDialog(row)"
+                title="重新授权"
+              >
+                <el-icon :size="18"><Key /></el-icon>
               </el-button>
 
               <el-button
@@ -302,6 +312,16 @@
 
             <el-button
               v-if="authStore.isAdmin"
+              type="warning"
+              plain
+              @click="openOAuthDialog(email)"
+            >
+              <el-icon><Key /></el-icon>
+              重新授权
+            </el-button>
+
+            <el-button
+              v-if="authStore.isAdmin"
               type="danger"
               plain
               :loading="operationLoading.deleteEmail[email.id]"
@@ -334,7 +354,9 @@
     <OAuthDeviceDialog
       v-if="authStore.isAdmin"
       v-model="showOAuthDialog"
-      @success="handleAddSuccess"
+      :mode="reauthorizingEmail ? 'reauthorize' : 'add'"
+      :email="reauthorizingEmail"
+      @success="handleOAuthSuccess"
     />
 
     <!-- 批量添加对话框 -->
@@ -439,6 +461,7 @@ const operationLoading = ref({
 // 对话框状态
 const showAddDialog = ref(false)
 const showOAuthDialog = ref(false)
+const reauthorizingEmail = ref<Email | null>(null)
 const showBatchDialog = ref(false)
 const showBatchTagDialog = ref(false)
 const showMailDialog = ref(false)
@@ -520,6 +543,16 @@ const handleCurrentChange = (page: number) => {
 }
 
 const handleImportSuccess = () => {
+  loadEmails()
+}
+
+const openOAuthDialog = (email?: Email) => {
+  reauthorizingEmail.value = email || null
+  showOAuthDialog.value = true
+}
+
+const handleOAuthSuccess = () => {
+  reauthorizingEmail.value = null
   loadEmails()
 }
 
@@ -1053,6 +1086,20 @@ onMounted(() => {
 
 .operation-buttons .icon-button-info:hover .el-icon {
   color: #000000;
+}
+
+/* 重新授权按钮 */
+.operation-buttons .icon-button-warning .el-icon {
+  color: #e6a23c;
+}
+
+.operation-buttons .icon-button-warning:hover {
+  background: rgba(230, 162, 60, 0.1);
+  border-color: rgba(230, 162, 60, 0.2);
+}
+
+.operation-buttons .icon-button-warning:hover .el-icon {
+  color: #b7791f;
 }
 
 /* 危险操作按钮 - 删除 */

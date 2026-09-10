@@ -140,6 +140,7 @@ func (s *Server) setupRouter() {
 				emails.POST("/batch-clear-inbox", auth.AdminMiddleware(), s.handleBatchClearInbox)
 				emails.GET("/:id/latest", s.handleGetLatestMail)
 				emails.GET("/:id/all", s.handleGetAllMails)
+				emails.PUT("/:id/oauth", auth.AdminMiddleware(), s.handleUpdateEmailOAuth)
 				emails.DELETE("/:id/inbox", auth.AdminMiddleware(), s.handleClearInbox)
 				emails.PUT("/:id/tags", auth.AdminMiddleware(), s.handleTagEmail)
 				emails.DELETE("/:id", auth.AdminMiddleware(), s.handleDeleteEmail)
@@ -823,6 +824,59 @@ func (s *Server) handleOAuthDeviceToken(c *gin.Context) {
 		Success: true,
 		Message: "获取授权结果成功",
 		Data:    response,
+	})
+}
+
+// handleUpdateEmailOAuth 重新授权已有邮箱
+func (s *Server) handleUpdateEmailOAuth(c *gin.Context) {
+	userID, exists := auth.GetCurrentUserID(c)
+	if !exists {
+		c.JSON(http.StatusUnauthorized, models.APIResponse{
+			Success: false,
+			Message: "未认证",
+			Error:   "user not authenticated",
+		})
+		return
+	}
+
+	emailIDStr := c.Param("id")
+	emailID, err := strconv.Atoi(emailIDStr)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "无效的邮箱ID",
+			Error:   "invalid email id",
+		})
+		return
+	}
+
+	var req models.UpdateEmailOAuthRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "请求参数错误",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	ipAddress := c.ClientIP()
+	userAgent := c.GetHeader("User-Agent")
+
+	email, err := s.emailService.UpdateEmailOAuth(userID, emailID, &req, ipAddress, userAgent)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Success: false,
+			Message: "重新授权邮箱失败",
+			Error:   err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Success: true,
+		Message: "重新授权邮箱成功",
+		Data:    email,
 	})
 }
 

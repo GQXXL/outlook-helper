@@ -83,6 +83,7 @@ export interface Email {
   id: number
   user_id: number
   email_address: string
+  client_id?: string
   remark: string
   refresh_token_updated_at?: string
   refresh_token_expires_at?: string
@@ -131,6 +132,11 @@ export interface OAuthDeviceTokenResponse {
   scope?: string
   error?: string
   error_description?: string
+}
+
+export interface UpdateEmailOAuthRequest {
+  client_id: string
+  refresh_token: string
 }
 
 // 授权码相关类型
@@ -279,6 +285,12 @@ export const emailAPI = {
 
   // 删除邮箱
   deleteEmail: (id: number): Promise<AxiosResponse<APIResponse>> => api.delete(`/emails/${id}`),
+
+  // 重新授权邮箱
+  reauthorizeEmail: (
+    id: number,
+    data: UpdateEmailOAuthRequest,
+  ): Promise<AxiosResponse<APIResponse<Email>>> => api.put(`/emails/${id}/oauth`, data),
 
   // 批量删除邮箱
   batchDeleteEmails: (emailIds: number[]): Promise<AxiosResponse<APIResponse>> =>

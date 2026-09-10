@@ -1,20 +1,25 @@
 <template>
   <el-dialog
     v-model="visible"
-    title="授权添加邮箱"
+    :title="dialogTitle"
     width="min(640px, calc(100vw - 24px))"
     :before-close="handleClose"
   >
     <el-form ref="formRef" :model="form" :rules="rules" label-width="108px" class="oauth-form">
       <el-form-item label="邮箱地址" prop="email_address">
-        <el-input v-model="form.email_address" placeholder="请输入 Outlook 邮箱" clearable />
+        <el-input
+          v-model="form.email_address"
+          placeholder="请输入 Outlook 邮箱"
+          :disabled="isReauthorize"
+          clearable
+        />
       </el-form-item>
 
       <el-form-item label="客户端ID" prop="client_id">
         <el-input v-model="form.client_id" placeholder="请输入 Microsoft Client ID" clearable />
       </el-form-item>
 
-      <el-form-item label="保存密码">
+      <el-form-item v-if="!isReauthorize" label="保存密码">
         <el-input
           v-model="form.password"
           type="password"
@@ -24,7 +29,7 @@
         />
       </el-form-item>
 
-      <el-form-item label="备注">
+      <el-form-item v-if="!isReauthorize" label="备注">
         <el-input v-model="form.remark" placeholder="请输入备注信息（可选）" clearable />
       </el-form-item>
     </el-form>
@@ -69,10 +74,20 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { CopyDocument, Key, Link, Refresh } from '@element-plus/icons-vue'
-import { emailAPI, oauthAPI, type AddEmailRequest, type OAuthDeviceCodeResponse } from '@/api'
+import {
+  emailAPI,
+  oauthAPI,
+  type AddEmailRequest,
+  type Email,
+  type OAuthDeviceCodeResponse,
+} from '@/api'
+
+const DEFAULT_CLIENT_ID = 'd3590ed6-52b3-4102-aeff-aad2292ab01c'
 
 interface Props {
   modelValue: boolean
+  mode?: 'add' | 'reauthorize'
+  email?: Email | null
 }
 
 interface Emits {
@@ -101,6 +116,12 @@ const form = reactive({
   remark: '',
 })
 
+const isReauthorize = computed(() => props.mode === 'reauthorize' && !!props.email)
+
+const dialogTitle = computed(() => (isReauthorize.value ? '重新授权邮箱' : '授权添加邮箱'))
+
+const actionFailedMessage = computed(() => (isReauthorize.value ? '重新授权失败' : '添加邮箱失败'))
+
 const rules: FormRules = {
   email_address: [
     { required: true, message: '请输入邮箱地址', trigger: 'blur' },
@@ -111,7 +132,7 @@ const rules: FormRules = {
 
 const statusText = computed(() => {
   if (adding.value) {
-    return '正在添加邮箱'
+    return isReauthorize.value ? '正在更新授权' : '正在添加邮箱'
   }
   if (status.value === 'authorized') {
     return '授权成功'
@@ -171,10 +192,10 @@ const resetState = () => {
     formRef.value.resetFields()
   }
   Object.assign(form, {
-    email_address: '',
-    client_id: '',
+    email_address: props.email?.email_address || '',
+    client_id: props.email?.client_id || DEFAULT_CLIENT_ID,
     password: '',
-    remark: '',
+    remark: props.email?.remark || '',
   })
   deviceCode.value = null
   expiresAt.value = null
@@ -292,29 +313,34 @@ const pollDeviceToken = async () => {
 const addAuthorizedEmail = async (refreshToken: string) => {
   try {
     adding.value = true
-    const payload: AddEmailRequest = {
-      email_address: form.email_address.trim(),
-      password: form.password.trim() || 'oauth',
-      client_id: form.client_id.trim(),
-      refresh_token: refreshToken,
-      remark: form.remark.trim(),
-    }
+    const response = isReauthorize.value
+      ? await emailAPI.reauthorizeEmail(props.email!.id, {
+          client_id: form.client_id.trim(),
+          refresh_token: refreshToken,
+        })
+      : await emailAPI.addEmail({
+          email_address: form.email_address.trim(),
+          password: form.password.trim() || 'oauth',
+          client_id: form.client_id.trim(),
+          refresh_token: refreshToken,
+          remark: form.remark.trim(),
+        } as AddEmailRequest)
 
-    const response = await emailAPI.addEmail(payload)
     if (!response.data.success) {
       status.value = 'failed'
-      statusMessage.value = response.data.error || response.data.message || '添加邮箱失败'
+      statusMessage.value =
+        response.data.error || response.data.message || actionFailedMessage.value
       ElMessage.error(statusMessage.value)
       return
     }
 
-    ElMessage.success('授权成功，邮箱已添加')
+    ElMessage.success(isReauthorize.value ? '重新授权成功' : '授权成功，邮箱已添加')
     emit('success')
     handleClose()
   } catch (error: any) {
     status.value = 'failed'
     statusMessage.value =
-      error.response?.data?.error || error.response?.data?.message || '添加邮箱失败'
+      error.response?.data?.error || error.response?.data?.message || actionFailedMessage.value
     ElMessage.error(statusMessage.value)
   } finally {
     adding.value = false

@@ -317,6 +317,34 @@ func (s *EmailService) UpdateEmail(userID int, emailID int, req *models.AddEmail
 	return email, nil
 }
 
+// UpdateEmailOAuth 重新授权邮箱，只更新OAuth客户端ID和RefreshToken
+func (s *EmailService) UpdateEmailOAuth(userID int, emailID int, req *models.UpdateEmailOAuthRequest, ipAddress, userAgent string) (*models.Email, error) {
+	email, err := s.GetEmailByID(userID, emailID)
+	if err != nil {
+		return nil, err
+	}
+
+	email.ClientID = req.ClientID
+	email.RefreshToken = req.RefreshToken
+	email.RefreshTokenUpdatedAt = nil
+	email.RefreshTokenExpiresAt = nil
+	email.RefreshTokenStatus = models.RefreshTokenStatusUnknown
+
+	if err := s.refreshNewEmailToken(email); err != nil {
+		return nil, fmt.Errorf("邮箱重新授权失败: %v", err)
+	}
+
+	if err := s.emailRepo.UpdateEmail(email); err != nil {
+		return nil, err
+	}
+
+	s.logRepo.LogEmail(userID, "email_reauthorized", emailID,
+		fmt.Sprintf("重新授权邮箱: %s", email.EmailAddress),
+		ipAddress, userAgent)
+
+	return email, nil
+}
+
 // DeleteEmail 删除邮箱
 func (s *EmailService) DeleteEmail(userID, emailID int, ipAddress, userAgent string) error {
 	// 检查邮箱是否存在且属于当前用户

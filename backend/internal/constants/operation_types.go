@@ -12,6 +12,7 @@ const (
 	OpEmailAdded            = "email_added"
 	OpEmailDeleted          = "email_deleted"
 	OpEmailUpdated          = "email_updated"
+	OpEmailReauthorized    = "email_reauthorized"
 	OpEmailValidationFailed = "email_validation_failed"
 	OpBatchAddEmails        = "batch_add_emails"
 	OpBatchDeleteEmails     = "batch_delete_emails"
@@ -50,6 +51,7 @@ var OperationTypeNames = map[string]string{
 	OpEmailAdded:            "添加邮箱",
 	OpEmailDeleted:          "删除邮箱",
 	OpEmailUpdated:          "更新邮箱",
+	OpEmailReauthorized:    "重新授权邮箱",
 	OpEmailValidationFailed: "邮箱验证失败",
 	OpBatchAddEmails:        "批量添加邮箱",
 	OpBatchDeleteEmails:     "批量删除邮箱",
